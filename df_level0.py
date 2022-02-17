@@ -128,18 +128,31 @@ def add_lum_ion(df, sim_path, snap_num, z, specFac):
         get_stellar_dist(stars, df, idx)
         idces = stars['rel_dist'] < 1
         utils._keepPartsByIdx(stars, idces)
+        # If no stars are left after filtering remove this halo from the df
+        if stars['count'] == 0:
+            df.drop(index=idx, inplace=True)
+            continue
 
         if stars['count'] < 10000:
-            specFac.computeStellarSpectra(stars, Q_0=True)
-            ion_lum = stars['Q_0'].sum()
-            summed_spectrum = stars['spectra'].sum(axis=0)
-            luminosity = integ.simps(summed_spectrum, stars['lambda'])
+            try:
+                specFac.computeStellarSpectra(stars, Q_0=True)
+                ion_lum = stars['Q_0'].sum()
+                summed_spectrum = stars['spectra'].sum(axis=0)
+                luminosity = integ.simps(summed_spectrum, stars['lambda'])
+            except:
+                print(f'An error occured in halo {idx}')
+                ion_lum = np.nan
+                luminosity = np.nan
         else:
-            print(stars['count'])
-            star_arr = star_batches(stars, batchsize=10000)
-            ion_lum, luminosity = calculate_batched_quants(star_arr)
+            try:
+                star_arr = star_batches(stars, batchsize=10000)
+                ion_lum, luminosity = calculate_batched_quants(star_arr, specFac)
+                del star_arr
+            except:
+                print(f'An error occured in halo {idx}')
+                ion_lum = np.nan
+                luminosity = np.nan
         del stars
-        del star_arr
         luminosities.append(luminosity)
         ion_lums.append(ion_lum)
     df[('luminosity', 0)] = luminosities
@@ -164,7 +177,7 @@ def build_new_df(df, name, z, h):
     new_df['sfr_surface_dens'] = new_df['SFR']/(np.pi*new_df['radius']**2)
     new_df['ionizing_flux'] = new_df['ion_lum']/(np.pi*new_df['radius']**2)
 
-    save_df(df, name)
+    save_df(new_df, name)
     return
 
 
