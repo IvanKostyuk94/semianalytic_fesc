@@ -156,7 +156,7 @@ def add_lum_ion(df, sim_path, snap_num, z, specFac):
         luminosities.append(luminosity)
         ion_lums.append(ion_lum)
     df[('luminosity', 0)] = luminosities
-    df[('ion_lum', 0)] = ion_lum
+    df[('ion_lum', 0)] = ion_lums
     return
 
 
@@ -176,6 +176,7 @@ def build_new_df(df, name, z, h):
     new_df['star_surface_dens'] = 1e10*new_df['StarMass']/(h*np.pi*new_df['radius']**2)
     new_df['sfr_surface_dens'] = new_df['SFR']/(np.pi*new_df['radius']**2)
     new_df['ionizing_flux'] = new_df['ion_lum']/(np.pi*new_df['radius']**2)
+    new_df['redshift'] = z
 
     save_df(new_df, name)
     return
