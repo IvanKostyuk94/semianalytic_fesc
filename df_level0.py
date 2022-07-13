@@ -259,7 +259,8 @@ def build_new_df(df, name, z, h):
     return
 
 
-def build_lv0(snap_num, output_name, from_tng=True, df_path=None, save_tng_df=False):
+def build_lv0(snap_num, output_name, from_tng=True, 
+              df_path=None, save_tng_df=False):
     sim, sim_path = get_sim()
 
     if from_tng:
@@ -278,11 +279,12 @@ def build_lv0(snap_num, output_name, from_tng=True, df_path=None, save_tng_df=Fa
     add_quantities(df, sim_path, snap_num, z, specFac)
     save_df(df, 'for_testing')
 
-    build_new_df(df, output_name, z, h)
+    build_n
+    ew_df(df, output_name, z, h)
     return
 
-
-snap_num = 13
-df_path = f'/ptmp/mpa/ivkos/semianalytic_fesc/testing/sn0{snap_num}.pickle'
-output_name = f'df_snap0{snap_num}_lv0'
-build_lv0(snap_num, output_name, from_tng=False, df_path=df_path, save_tng_df=False)
+if __name__ == '__main__':
+    snap_num = 13
+    df_path = f'/ptmp/mpa/ivkos/semianalytic_fesc/testing/sn0{snap_num}.pickle'
+    output_name = f'df_snap0{snap_num}_lv0'
+    build_lv0(snap_num, output_name, from_tng=False, df_path=df_path, save_tng_df=False)
