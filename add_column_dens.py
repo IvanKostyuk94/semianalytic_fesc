@@ -44,7 +44,7 @@ def get_volume_mass(df, sim_path, snap_num, z):
     return
 
 
-def get_column_height_dens(df):
+def get_column_height_dens(df, z):
     rad = df[('SubhaloHalfmassRadType', 4)]*2
     dist_to_cm = (1*u.kpc).to(u.cm)/h/(1+z)
     rad_cm = rad*dist_to_cm

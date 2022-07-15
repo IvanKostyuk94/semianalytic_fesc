@@ -279,8 +279,7 @@ def build_lv0(snap_num, output_name, from_tng=True,
     add_quantities(df, sim_path, snap_num, z, specFac)
     save_df(df, 'for_testing')
 
-    build_n
-    ew_df(df, output_name, z, h)
+    build_new_df(df, output_name, z, h)
     return
 
 if __name__ == '__main__':
