@@ -34,22 +34,21 @@ def get_dataset_df(sim, snap_num):
 def reduce_df(df):
     filt = (df[('SubhaloMassInRadType', 4)] > 0) & (df[('SubhaloSFRinRad', 0)] > 0)
     reduced_df = df[filt]
-    columns_of_interest = [
-                        ('SubhaloGasMetallicity', 0),
-                        ('SubhaloGasMetallicityHalfRad', 0),
-                        ('SubhaloHalfmassRadType', 4),
-                        ('SubhaloMassInHalfRad', 0),
-                        ('SubhaloMassInHalfRadType', 4),
-                        ('SubhaloMassInRad', 0),
-                        ('SubhaloMassInRadType', 0),
-                        ('SubhaloMassInRadType', 4),
-                        ('SubhaloSFRinHalfRad', 0),
-                        ('SubhaloSFRinRad', 0),
-                        ('SubhaloPos', 0),
-                        ('SubhaloPos', 1),
-                        ('SubhaloPos', 2)]
-    reduced_df = reduce_df[columns_of_interest]
-    return reduced_df
+    
+    new_df = pd.DataFrame().assign(
+                        Z_2r = reduced_df[('SubhaloGasMetallicity', 0)],
+                        Z_r = reduced_df[('SubhaloGasMetallicityHalfRad', 0)],
+                        r = reduced_df[('SubhaloHalfmassRadType', 4)],
+                        M_gas_r = reduced_df[('SubhaloMassInHalfRadType', 0)],
+                        M_gas_2r = reduced_df[('SubhaloMassInRadType', 0)],
+                        M_star_r = reduced_df[('SubhaloMassInHalfRadType', 4)],
+                        M_star_2r = reduced_df[('SubhaloMassInRadType', 4)],
+                        SFR_r = reduced_df[('SubhaloSFRinHalfRad', 0)],
+                        SFR_2r = reduced_df[('SubhaloSFRinRad', 0)],
+                        Halo_pos_x = reduced_df[('SubhaloPos', 0)],
+                        Halo_pos_y = reduced_df[('SubhaloPos', 1)],
+                        Halo_pos_z = reduced_df[('SubhaloPos', 2)])
+    return new_df
 
 
 def save_df(df, name):
@@ -70,9 +69,11 @@ def build_spec_fac():
 
 
 def get_stellar_dist(stars, df, index):
-    gal_center = np.array([df.loc[index][('SubhaloPos', 0)], df.loc[index][('SubhaloPos', 1)], df.loc[index][('SubhaloPos', 2)]])
+    gal_center = np.array([df.loc[index]['Halo_pos_x'], 
+                           df.loc[index]['Halo_pos_y'], 
+                           df.loc[index]['Halo_pos_z']])
     rel_pos = stars['Coordinates']-gal_center
-    radius = df.loc[index][('SubhaloHalfmassRadType', 4)]*2
+    radius = df.loc[index]['r']*2
     dist = np.sqrt(np.sum(np.square(rel_pos), axis=1))
     rel_dist = dist/radius
     stars['rel_dist'] = rel_dist

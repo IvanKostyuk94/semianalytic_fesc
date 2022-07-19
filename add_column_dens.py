@@ -5,64 +5,175 @@ import illustris_python as il
 import astropy.units as u
 from pyTNG.cosmology import TNGcosmo
 from df_level0 import get_sim
+import pyTNG.utils as utils
+import time
 
 h = TNGcosmo.h
 
 
 def get_particle_dist(particles, df, index):
-    gal_center = np.array([df.loc[index][('SubhaloPos', 0)], 
-                           df.loc[index][('SubhaloPos', 1)], 
-                           df.loc[index][('SubhaloPos', 2)]])
+    gal_center = np.array([df.loc[index]['Halo_pos_x'],
+                           df.loc[index]['Halo_pos_y'],
+                           df.loc[index]['Halo_pos_z']])
     rel_pos = particles['Coordinates']-gal_center
-    radius = df.loc[index][('SubhaloHalfmassRadType', 4)]*2
+    radius = df.loc[index]['r']*2
     dist = np.sqrt(np.sum(np.square(rel_pos), axis=1))
     rel_dist = dist/radius
     particles['rel_dist'] = rel_dist
     return
 
 
-def get_volume_mass(df, sim_path, snap_num, z):
+def update_df(df, sim_path, snap_num, z):
     counter = 0
     volumes = []
     masses = []
+    tot_star_masses = []
+
+    volumes_half_rad = []
+    masses_half_rad = []
+    tot_star_masses_half_rad = []
+
     mass_to_g = (1*u.Msun).to(u.kg).value*1e10/h
     volume_to_cm3 = ((1*u.kpc).to(u.cm)/h/(1+z))**3
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'gas')
+        wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'stars')
+        wind, stars = separate_wind_stars(wind_stars)
+
         get_particle_dist(gas, df, idx)
+        get_particle_dist(wind, df, idx)
+
         gas_in_rad = gas['rel_dist'] < 1
+        wind_in_rad = wind['rel_dist'] < 1
+        if len(wind_in_rad) > 0:
+            wind_masses_rad = wind['Masses'][wind_in_rad]
+        else:
+            wind_masses_rad = 0
         gas_masses = gas['Masses'][gas_in_rad]
         gas_densities = gas['Density'][gas_in_rad]
         gas_volumes = gas_masses/gas_densities
         volumes.append(np.sum(gas_volumes))
-        masses.append(np.sum(gas_masses))
+        masses.append(np.sum(gas_masses)+np.sum(wind_masses_rad))
+
+        gas_in_half_rad = gas['rel_dist'] < 0.5
+        wind_in_half_rad = wind['rel_dist'] < 0.5
+        gas_masses_half_rad = gas['Masses'][gas_in_half_rad]
+        if len(wind_in_half_rad) > 0:
+            wind_masses_half_rad = wind['Masses'][wind_in_half_rad]
+        else:
+            wind_masses_half_rad = 0
+        gas_densities_half_rad = gas['Density'][gas_in_half_rad]
+        gas_volumes_half_rad = gas_masses_half_rad/gas_densities_half_rad
+        volumes_half_rad.append(np.sum(gas_volumes_half_rad))
+        masses_half_rad.append(np.sum(gas_masses_half_rad) +
+                               np.sum(wind_masses_half_rad))
+
+        get_particle_dist(stars, df, idx)
+        stars_in_rad = stars['rel_dist'] < 1
+        star_masses = np.sum(stars_in_rad)
+        tot_star_masses.append(star_masses)
+
+        stars_in_half_rad = stars['rel_dist'] < 0.5
+        star_masses_half_rad = np.sum(stars_in_half_rad)
+        tot_star_masses_half_rad.append(star_masses_half_rad)
+
         if counter % 100 == 0:
             print(f'{100*counter/len(df):.2f}% of all halos processed')
         counter += 1
-    df[('masses', 0)] = np.array(masses)*mass_to_g
-    df[('volumes', 0)] = np.array(volumes)*volume_to_cm3
+    df['Masses_2r'] = np.array(masses)*mass_to_g
+    df['Volumes_2r'] = np.array(volumes)*volume_to_cm3
+    df['Star_masses_2r'] = np.array(tot_star_masses)*mass_to_g
+
+    df['Masses_r'] = np.array(masses_half_rad)*mass_to_g
+    df['Volumes_r'] = np.array(volumes_half_rad)*volume_to_cm3
+    df['Star_masses_r'] = np.array(tot_star_masses_half_rad)*mass_to_g
+    return
+
+
+def get_star_mass(df, sim_path, snap_num, z):
+    counter = 0
+    tot_star_masses = []
+    mass_to_g = (1*u.Msun).to(u.kg).value*1e10/h
+    for idx in df.index:
+        stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'stars')
+        get_particle_dist(stars, df, idx)
+        stars_in_rad = stars['rel_dist'] < 1
+        star_masses = stars['Masses'][stars_in_rad]
+        tot_star_masses.append(np.sum(star_masses))
+        if counter % 100 == 0:
+            print(f'{100*counter/len(df):.2f}% of all halos processed')
+        counter += 1
+    df[('star_masses', 0)] = np.array(tot_star_masses)*mass_to_g
     return
 
 
 def get_column_height_dens(df, z):
-    rad = df[('SubhaloHalfmassRadType', 4)]*2
+    rad = df['r']*2
     dist_to_cm = (1*u.kpc).to(u.cm)/h/(1+z)
     rad_cm = rad*dist_to_cm
     areas = rad_cm**2*np.pi
-    df[('column_height', 0)] = df[('volumes', 0)]/areas
+    df['Column_height'] = df[('volumes', 0)]/areas
     df[('column_dens', 0)] = df[('masses', 0)]/df[('column_height', 0)]
     return
 
 
+def keepWindParticles(starAndWindParts):
+    try:
+        idces = starAndWindParts['GFM_StellarFormationTime'] < 0
+        utils._keepPartsByIdx(starAndWindParts, idces)
+    except KeyError as e:
+        if str(e) == 'GFM_StellarFormationTime' and starAndWindParts['count'] == 0:
+            pass
+        else:
+            raise
+    return
+
+def separate_wind_stars(starAndWindParts):
+    try:
+        idces_wind = starAndWindParts['GFM_StellarFormationTime'] < 0
+        idces_stars = starAndWindParts['GFM_StellarFormationTime'] > 0
+        
+        newcount_wind = (idces_wind == True).sum()
+        newcount_stars = (idces_stars == True).sum()
+        
+        wind ={}
+        stars = {}
+        for key, value in starAndWindParts.items():
+            try:
+                wind[key] = value[idces_wind]
+                stars[key] = value[idces_stars]
+            # for Python scalars
+            except TypeError as e:
+                if 'not subscriptable' in str(e):
+                    pass
+                else:
+                    raise
+            # for numpy scalars
+            except IndexError as e:
+                if 'invalid index to scalar variable' in str(e):
+                    pass
+                else:
+                    raise
+        if 'count' in starAndWindParts:
+            wind['count'] = newcount_wind
+            stars['count'] = newcount_stars
+    except KeyError as e:
+        if str(e) == 'GFM_StellarFormationTime' and starAndWindParts['count'] == 0:
+            pass
+        else:
+            raise
+
+    return wind, stars
+
+
 if __name__ == '__main__':
-    df_path = '/ptmp/mpa/ivkos/semianalytic_fesc/testing/sn013.pickle'
+    df_path = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013/dataset_reduced.pickle'
     df = pd.read_pickle(df_path)
 
     snap_num = 13
-    df[('SubhaloMassInRadType', 0)]
     sim, sim_path = get_sim()
     z = sim.snap_cat[snap_num].header['Redshift']
-    get_volume_mass(df, sim_path, snap_num, z)
-    base = '/ptmp/mpa/ivkos/semianalytic_fesc'
-    full_path = os.path.join(base, 'df_with_volumes.pickle')
+    update_df(df, sim_path, snap_num, z)
+    base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
+    full_path = os.path.join(base, 'reduced_df_update1.pickle')
     df.to_pickle(full_path)
