@@ -4,23 +4,62 @@ import os
 import illustris_python as il
 import astropy.units as u
 from pyTNG.cosmology import TNGcosmo
-from df_level0 import get_sim
+from utils import get_sim
 import pyTNG.utils as utils
-import time
+from utils import get_particle_dist
+from utils import get_redshift
 
 h = TNGcosmo.h
 
 
-def get_particle_dist(particles, df, index):
-    gal_center = np.array([df.loc[index]['Halo_pos_x'],
-                           df.loc[index]['Halo_pos_y'],
-                           df.loc[index]['Halo_pos_z']])
-    rel_pos = particles['Coordinates']-gal_center
-    radius = df.loc[index]['r']*2
-    dist = np.sqrt(np.sum(np.square(rel_pos), axis=1))
-    rel_dist = dist/radius
-    particles['rel_dist'] = rel_dist
+def keepWindParticles(starAndWindParts):
+    try:
+        idces = starAndWindParts['GFM_StellarFormationTime'] < 0
+        utils._keepPartsByIdx(starAndWindParts, idces)
+    except KeyError as e:
+        if str(e) == 'GFM_StellarFormationTime' and starAndWindParts['count'] == 0:
+            pass
+        else:
+            raise
     return
+
+
+def separate_wind_stars(starAndWindParts):
+    try:
+        idces_wind = starAndWindParts['GFM_StellarFormationTime'] < 0
+        idces_stars = starAndWindParts['GFM_StellarFormationTime'] > 0
+
+        newcount_wind = (idces_wind == True).sum()
+        newcount_stars = (idces_stars == True).sum()
+
+        wind = {}
+        stars = {}
+        for key, value in starAndWindParts.items():
+            try:
+                wind[key] = value[idces_wind]
+                stars[key] = value[idces_stars]
+            # for Python scalars
+            except TypeError as e:
+                if 'not subscriptable' in str(e):
+                    pass
+                else:
+                    raise
+            # for numpy scalars
+            except IndexError as e:
+                if 'invalid index to scalar variable' in str(e):
+                    pass
+                else:
+                    raise
+        if 'count' in starAndWindParts:
+            wind['count'] = newcount_wind
+            stars['count'] = newcount_stars
+    except KeyError as e:
+        if str(e) == 'GFM_StellarFormationTime' and starAndWindParts['count'] == 0:
+            pass
+        else:
+            raise
+
+    return wind, stars
 
 
 def update_df(df, sim_path, snap_num, z):
@@ -107,72 +146,13 @@ def get_star_mass(df, sim_path, snap_num, z):
     return
 
 
-def get_column_height_dens(df, z):
-    rad = df['r']*2
-    dist_to_cm = (1*u.kpc).to(u.cm)/h/(1+z)
-    rad_cm = rad*dist_to_cm
-    areas = rad_cm**2*np.pi
-    df['Column_height'] = df[('volumes', 0)]/areas
-    df[('column_dens', 0)] = df[('masses', 0)]/df[('column_height', 0)]
-    return
-
-
-def keepWindParticles(starAndWindParts):
-    try:
-        idces = starAndWindParts['GFM_StellarFormationTime'] < 0
-        utils._keepPartsByIdx(starAndWindParts, idces)
-    except KeyError as e:
-        if str(e) == 'GFM_StellarFormationTime' and starAndWindParts['count'] == 0:
-            pass
-        else:
-            raise
-    return
-
-def separate_wind_stars(starAndWindParts):
-    try:
-        idces_wind = starAndWindParts['GFM_StellarFormationTime'] < 0
-        idces_stars = starAndWindParts['GFM_StellarFormationTime'] > 0
-        
-        newcount_wind = (idces_wind == True).sum()
-        newcount_stars = (idces_stars == True).sum()
-        
-        wind ={}
-        stars = {}
-        for key, value in starAndWindParts.items():
-            try:
-                wind[key] = value[idces_wind]
-                stars[key] = value[idces_stars]
-            # for Python scalars
-            except TypeError as e:
-                if 'not subscriptable' in str(e):
-                    pass
-                else:
-                    raise
-            # for numpy scalars
-            except IndexError as e:
-                if 'invalid index to scalar variable' in str(e):
-                    pass
-                else:
-                    raise
-        if 'count' in starAndWindParts:
-            wind['count'] = newcount_wind
-            stars['count'] = newcount_stars
-    except KeyError as e:
-        if str(e) == 'GFM_StellarFormationTime' and starAndWindParts['count'] == 0:
-            pass
-        else:
-            raise
-
-    return wind, stars
-
-
 if __name__ == '__main__':
     df_path = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013/dataset_reduced.pickle'
     df = pd.read_pickle(df_path)
 
     snap_num = 13
     sim, sim_path = get_sim()
-    z = sim.snap_cat[snap_num].header['Redshift']
+    z = get_redshift(sim, snap_num)
     update_df(df, sim_path, snap_num, z)
     base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
     full_path = os.path.join(base, 'reduced_df_update1.pickle')

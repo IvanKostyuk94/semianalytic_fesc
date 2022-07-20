@@ -8,54 +8,10 @@ from pyTNG import spectra
 import scipy.integrate as integ
 import pyTNG.utils as utils
 from pyTNG.cosmology import TNGcosmo
-
-
-def get_sim():
-    basepath = '/virgotng/universe/IllustrisTNG/'
-    sim_name = 'L35n2160TNG'
-    sim = _data_interface.TNG50Simulation(os.path.join(basepath, sim_name))
-    sim_path = os.path.join(basepath, sim_name, 'output')
-    return sim, sim_path
-
-
-def get_dataset_df(sim, snap_num):
-    dataset = next(sim.group_cat[snap_num].chunk_generator('subhalo'))
-    keys_needed = [
-                    'SubhaloGasMetallicity', 'SubhaloGasMetallicityHalfRad',
-                    'SubhaloHalfmassRadType', 'SubhaloMassInHalfRad',
-                    'SubhaloMassInHalfRadType', 'SubhaloMassInRad',
-                    'SubhaloMassInRadType', 'SubhaloSFRinHalfRad',
-                    'SubhaloSFRinRad', 'SubhaloPos']
-    sub_dict = {key: dataset[key] for key in keys_needed}
-    dataset_df = utils.dfFromArrDict(sub_dict)
-    return dataset_df
-
-
-def reduce_df(df):
-    filt = (df[('SubhaloMassInRadType', 4)] > 0) & (df[('SubhaloSFRinRad', 0)] > 0)
-    reduced_df = df[filt]
-    
-    new_df = pd.DataFrame().assign(
-                        Z_2r = reduced_df[('SubhaloGasMetallicity', 0)],
-                        Z_r = reduced_df[('SubhaloGasMetallicityHalfRad', 0)],
-                        r = reduced_df[('SubhaloHalfmassRadType', 4)],
-                        M_gas_r = reduced_df[('SubhaloMassInHalfRadType', 0)],
-                        M_gas_2r = reduced_df[('SubhaloMassInRadType', 0)],
-                        M_star_r = reduced_df[('SubhaloMassInHalfRadType', 4)],
-                        M_star_2r = reduced_df[('SubhaloMassInRadType', 4)],
-                        SFR_r = reduced_df[('SubhaloSFRinHalfRad', 0)],
-                        SFR_2r = reduced_df[('SubhaloSFRinRad', 0)],
-                        Halo_pos_x = reduced_df[('SubhaloPos', 0)],
-                        Halo_pos_y = reduced_df[('SubhaloPos', 1)],
-                        Halo_pos_z = reduced_df[('SubhaloPos', 2)])
-    return new_df
-
-
-def save_df(df, name):
-    base = '/ptmp/mpa/ivkos/semianalytic_fesc'
-    full_path = os.path.join(base, f'{name}.pickle')
-    df.to_pickle(full_path)
-    return
+from utils import get_stellar_dist_gas
+from utils import get_particle_dist
+from utils import get_redshift
+from utils import get_sim
 
 
 def build_spec_fac():
@@ -130,20 +86,6 @@ def get_star_forming_gas(gas):
     return star_forming_gas
 
 
-def get_radius_vol(gas):
-    gas['Radii'] = ((3/(4*np.pi)*gas['Masses']/gas['Densities']))**(1/3)
-    gas['Volumes'] = gas['Masses']/gas['Densities']
-    return gas
-
-
-def get_stellar_dist_gas(stars, gas_coord, gas_rad):
-    rel_pos = stars['Coordinates']-gas_coord
-    dist = np.sqrt(np.sum(np.square(rel_pos), axis=1))
-    rel_dist = dist/gas_rad
-    stars['rel_dist'] = rel_dist
-    return
-
-
 def select_stars_in_gas(stars, gas):
     relevant_stars = {}
     for key in stars.keys():
@@ -167,7 +109,16 @@ def select_stars_in_gas(stars, gas):
     return relevant_stars
 
 
-def add_quantities(df, sim_path, snap_num, z, specFac):
+def get_radius_vol(gas):
+    gas['Radii'] = ((3/(4*np.pi)*gas['Masses']/gas['Densities']))**(1/3)
+    gas['Volumes'] = gas['Masses']/gas['Densities']
+    return gas
+
+
+# Function which adds additional subhalo properties (luminosities,
+# ionizing luminosities, gas_masses, star_masses, sfrs, metallicities
+# and volumes) corresponding to only star forming gas cells
+def add_sf_quantities(df, sim_path, snap_num, z):
     luminosities = []
     ion_lums = []
     gas_masses = []
@@ -175,7 +126,7 @@ def add_quantities(df, sim_path, snap_num, z, specFac):
     sfrs = []
     metallicities = []
     volumes = []
-    # df[('ion_lum', 0)] = np.nan
+    specFac = build_spec_fac
     for idx in df.index:
         print(f'Working on subhalo {idx}')
         stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'stars')
@@ -183,22 +134,20 @@ def add_quantities(df, sim_path, snap_num, z, specFac):
         stars['Redshift'] = z
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'gas')
         relevant_gas = get_star_forming_gas(gas)
-        get_stellar_dist(relevant_gas, df, idx)
+        get_particle_dist(relevant_gas, df, idx)
         idces = relevant_gas['rel_dist'] < 1
         utils._keepPartsByIdx(relevant_gas, idces)
         get_radius_vol(relevant_gas)
         relevant_stars = select_stars_in_gas(stars, relevant_gas)
         del stars
-        # get_stellar_dist(stars, df, idx)
-        # idces = stars['rel_dist'] < 1
-        # utils._keepPartsByIdx(stars, idces)
 
         # If no stars are left after filtering remove this halo from the df
         if relevant_stars['count'] == 0:
             df.drop(index=idx, inplace=True)
             continue
 
-        relevant_stars['ages'] = spectra._computeAgeFromFormationTime(relevant_stars['Redshift'], relevant_stars['GFM_StellarFormationTime'])
+        relevant_stars['ages'] = spectra._computeAgeFromFormationTime(relevant_stars['Redshift'], 
+                                                                      relevant_stars['GFM_StellarFormationTime'])
 
         if relevant_stars['count'] < 10000:
             try:
@@ -227,64 +176,25 @@ def add_quantities(df, sim_path, snap_num, z, specFac):
         sfrs.append(np.sum(relevant_gas['SFR']))
         metallicities.append(np.sum(relevant_gas['Z']*relevant_gas['Masses'])/np.sum(relevant_gas['Masses']))
         volumes.append(np.sum(relevant_gas['Volumes']))
-    df[('luminosity', 0)] = luminosities
-    df[('ion_lum', 0)] = ion_lums
-    df[('GasMass', 0)] = gas_masses
-    df[('SFR', 0)] = sfrs
-    df[('StarMass', 0)] = star_masses
-    df[('Volume', 0)] = volumes
-    df[('Z', 0)] = metallicities
+    df['Lum_sf'] = luminosities
+    df['Ion_lum_sf'] = ion_lums
+    df['M_gas_sf'] = gas_masses
+    df['SFR_sf'] = sfrs
+    df['M_star_sf'] = star_masses
+    df['V_sf'] = volumes
+    df['Z_sf'] = metallicities
     return
 
-
-def build_new_df(df, name, z, h):
-    new_df = pd.DataFrame()
-    new_df['HaloMass'] = df[('SubhaloMassInRad', 0)]
-    new_df['GasMass'] = df[('GasMass', 0)]
-    new_df['StarMass'] = df[('StarMass', 0)]
-    new_df['SFR'] = df[('SFR', 0)]
-    new_df['com_radius'] = 2*df[('SubhaloHalfmassRadType', 4)]
-    new_df['Z'] = df[('Z', 0)]
-    new_df['ion_lum'] = df[('ion_lum', 0)]
-    new_df['luminosity'] = df[('luminosity', 0)]
-    new_df['Volume'] = df[('Volume', 0)]
-
-    new_df['radius'] = (z+1)*new_df['com_radius']/h
-    new_df['gas_surface_dens'] = 1e10*new_df['GasMass']/(h*np.pi*new_df['radius']**2)
-    new_df['star_surface_dens'] = 1e10*new_df['StarMass']/(h*np.pi*new_df['radius']**2)
-    new_df['sfr_surface_dens'] = new_df['SFR']/(np.pi*new_df['radius']**2)
-    new_df['ionizing_flux'] = new_df['ion_lum']/(np.pi*new_df['radius']**2)
-    new_df['redshift'] = z
-
-    save_df(new_df, name)
-    return
-
-
-def build_lv0(snap_num, output_name, from_tng=True, 
-              df_path=None, save_tng_df=False):
-    sim, sim_path = get_sim()
-
-    if from_tng:
-        dataset_df = get_dataset_df(sim, snap_num)
-        df = reduce_df(dataset_df)
-        if save_tng_df:
-            save_df(f'tng_df_snap0{snap_num}')
-    else:
-        df = pd.read_pickle(df_path)
-
-    specFac = build_spec_fac()
-
-    z = sim.snap_cat[snap_num].header['Redshift']
-    h = TNGcosmo.h
-
-    add_quantities(df, sim_path, snap_num, z, specFac)
-    save_df(df, 'for_testing')
-
-    build_new_df(df, output_name, z, h)
-    return
 
 if __name__ == '__main__':
+    base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
+    df_path = os.path.join(base, 'reduced_df_update1.pickle')
+    df = pd.read_pickle(df_path)
+
     snap_num = 13
-    df_path = f'/ptmp/mpa/ivkos/semianalytic_fesc/testing/sn0{snap_num}.pickle'
-    output_name = f'df_snap0{snap_num}_lv0'
-    build_lv0(snap_num, output_name, from_tng=False, df_path=df_path, save_tng_df=False)
+    sim, sim_path = get_sim()
+    z = get_redshift(sim, snap_num)
+    add_sf_quantities(df, sim_path, snap_num, z)
+    
+    save_path = os.path.join(base, 'reduced_df_update2.pickle')
+    df.to_pickle(safe_path)
