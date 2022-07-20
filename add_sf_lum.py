@@ -1,4 +1,3 @@
-from pyTNG import data_interface as _data_interface
 import os
 import pandas as pd
 import numpy as np
@@ -7,7 +6,6 @@ from pyTNG.spectra import StarSpectrumFactory
 from pyTNG import spectra
 import scipy.integrate as integ
 import pyTNG.utils as utils
-from pyTNG.cosmology import TNGcosmo
 from utils import get_stellar_dist_gas
 from utils import get_particle_dist
 from utils import get_redshift
@@ -197,4 +195,4 @@ if __name__ == '__main__':
     add_sf_quantities(df, sim_path, snap_num, z)
     
     save_path = os.path.join(base, 'reduced_df_update2.pickle')
-    df.to_pickle(safe_path)
+    df.to_pickle(save_path)
