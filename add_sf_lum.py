@@ -124,7 +124,7 @@ def add_sf_quantities(df, sim_path, snap_num, z):
     sfrs = []
     metallicities = []
     volumes = []
-    specFac = build_spec_fac
+    specFac = build_spec_fac()
     for idx in df.index:
         print(f'Working on subhalo {idx}')
         stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'stars')
@@ -179,7 +179,7 @@ def add_sf_quantities(df, sim_path, snap_num, z):
     df['M_gas_sf'] = gas_masses
     df['SFR_sf'] = sfrs
     df['M_star_sf'] = star_masses
-    df['V_sf'] = volumes
+    df['V_gas_sf'] = volumes
     df['Z_sf'] = metallicities
     return
 
@@ -193,6 +193,6 @@ if __name__ == '__main__':
     sim, sim_path = get_sim()
     z = get_redshift(sim, snap_num)
     add_sf_quantities(df, sim_path, snap_num, z)
-    
+
     save_path = os.path.join(base, 'reduced_df_update2.pickle')
     df.to_pickle(save_path)
