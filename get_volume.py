@@ -109,11 +109,11 @@ def update_df(df, sim_path, snap_num, z):
 
         get_particle_dist(stars, df, idx)
         stars_in_rad = stars['rel_dist'] < 1
-        star_masses = np.sum(stars_in_rad)
+        star_masses = np.sum(stars['Masses'][stars_in_rad])
         tot_star_masses.append(star_masses)
 
         stars_in_half_rad = stars['rel_dist'] < 0.5
-        star_masses_half_rad = np.sum(stars_in_half_rad)
+        star_masses_half_rad = np.sum(stars['Masses'][stars_in_half_rad])
         tot_star_masses_half_rad.append(star_masses_half_rad)
 
         if counter % 100 == 0:
