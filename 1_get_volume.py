@@ -72,7 +72,7 @@ def update_df(df, sim_path, snap_num, z):
     masses_half_rad = []
     tot_star_masses_half_rad = []
 
-    mass_to_g = (1*u.Msun).to(u.kg).value*1e10/h
+    mass_to_g = (1*u.Msun).to(u.g).value*1e10/h
     volume_to_cm3 = ((1*u.kpc).to(u.cm)/h/(1+z))**3
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'gas')
@@ -146,14 +146,35 @@ def get_star_mass(df, sim_path, snap_num, z):
     return
 
 
-if __name__ == '__main__':
-    df_path = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013/dataset_reduced.pickle'
-    df = pd.read_pickle(df_path)
+# Function which removes columns which are represented twice such as
+# star and gas mass which we calculate in get_volume to ensure that
+# everything is consistent and converts the stellar half mass rad to cm
+def reformat_df(df, z):
+    columns_to_drop = ['M_gas_r', 'M_gas_2r', 'M_star_r', 'M_star_2r']
+    df.drop(labels=columns_to_drop, inplace=True, axis=1)
 
+    dist_to_cm = (1*u.kpc).to(u.cm)/h/(1+z)
+    df['r'] = df['r']*dist_to_cm
+    df['Redshift'] = z
+
+    to_rename = {'Masses_r': 'M_gas_r', 'Masses_2r': 'M_gas_2r',
+                 'Volumes_r': 'V_r', 'Volumes_2r': 'V_2r',
+                 'Star_masses_r': 'M_star_r', 'Star_masses_2r': 'M_star_2r'}
+    df.rename(columns=to_rename, inplace=True)
+    return
+
+
+if __name__ == '__main__':
+    level_0_name = '0_test_df.pickle'
     snap_num = 13
+    level_1_name = '1_df.pickle'
+    base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
+
+    df_path = os.path.join(base, level_0_name)
+    df = pd.read_pickle(df_path)
     sim, sim_path = get_sim()
     z = get_redshift(sim, snap_num)
     update_df(df, sim_path, snap_num, z)
-    base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
-    full_path = os.path.join(base, 'reduced_df_update1.pickle')
-    df.to_pickle(full_path)
+    reformat_df(df, z)
+    save_path = os.path.join(base, level_1_name)
+    df.to_pickle(save_path)

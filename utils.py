@@ -3,6 +3,10 @@ import pyTNG.utils as utils
 from pyTNG import data_interface as _data_interface
 import pandas as pd
 import numpy as np
+from pyTNG.cosmology import TNGcosmo
+
+
+h = TNGcosmo.h
 
 
 def get_sim():
@@ -27,7 +31,7 @@ def get_dataset_df(sim, snap_num):
 
 
 def reduce_df(df):
-    filt = (df[('SubhaloMassInRadType', 4)] > 0) & (df[('SubhaloSFRinRad', 0)] > 0)
+    filt = (df[('SubhaloMassInRadType', 4)]*1e10/h > 5e5) & (df[('SubhaloSFRinRad', 0)] > 0)
     reduced_df = df[filt]
     
     new_df = pd.DataFrame().assign(
