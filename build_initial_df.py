@@ -11,6 +11,7 @@ def build_new_df(snap_num, save_name='reduced_df'):
     save_df.to_pickle(save_path)
     return
 
+
 if __name__ == '__main__':
     snap_num = 13
     build_new_df(snap_num)

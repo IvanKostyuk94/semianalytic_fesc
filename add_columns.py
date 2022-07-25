@@ -5,6 +5,8 @@ import astropy.units as u
 from astropy.constants import m_p
 from utils import get_redshift
 from utils import get_sim
+import os
+
 
 h = TNGcosmo.h
 
@@ -47,13 +49,14 @@ def get_column_height_dens(df):
 
 
 if __name__ == '__main__':
-    df_path = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013/reduced_df_update1.pickle'
+    base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
+    df_path = os.path.join(base, 'reduced_df_update1.pickle')
+    save_path = os.path.join(base, 'reduced_df_update2.pickle')
     df = pd.read_pickle(df_path)
 
     snap_num = 13
     sim, sim_path = get_sim()
     z = get_redshift(sim, snap_num)
-    #reformat_df(df, z)
+    reformat_df(df, z)
     get_column_height_dens(df)
-    base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
-    df.to_pickle(df_path)
+    df.to_pickle(save_path)

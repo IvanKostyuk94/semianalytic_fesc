@@ -174,8 +174,8 @@ def add_sf_quantities(df, sim_path, snap_num, z):
         sfrs.append(np.sum(relevant_gas['SFR']))
         metallicities.append(np.sum(relevant_gas['Z']*relevant_gas['Masses'])/np.sum(relevant_gas['Masses']))
         volumes.append(np.sum(relevant_gas['Volumes']))
-    df['Lum_sf'] = luminosities
-    df['Ion_lum_sf'] = ion_lums
+    df['Bol_lum_sf'] = luminosities
+    df['Ion_em_sf'] = ion_lums
     df['M_gas_sf'] = gas_masses
     df['SFR_sf'] = sfrs
     df['M_star_sf'] = star_masses

@@ -26,13 +26,6 @@ def get_dataset_df(sim, snap_num):
     return dataset_df
 
 
-def save_df(df, name):
-    base = '/ptmp/mpa/ivkos/semianalytic_fesc'
-    full_path = os.path.join(base, f'{name}.pickle')
-    df.to_pickle(full_path)
-    return
-
-
 def reduce_df(df):
     filt = (df[('SubhaloMassInRadType', 4)] > 0) & (df[('SubhaloSFRinRad', 0)] > 0)
     reduced_df = df[filt]
@@ -76,3 +69,4 @@ def get_stellar_dist_gas(stars, gas_coord, gas_rad):
 def get_redshift(sim, snap_num):
     z = sim.snap_cat[snap_num].header['Redshift']
     return z
+
