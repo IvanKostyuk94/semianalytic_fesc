@@ -165,7 +165,7 @@ def reformat_df(df, z):
 
 
 if __name__ == '__main__':
-    level_0_name = '0_test_df.pickle'
+    level_0_name = '0_df.pickle'
     snap_num = 13
     level_1_name = '1_df.pickle'
     base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
