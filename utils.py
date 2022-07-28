@@ -4,6 +4,7 @@ from pyTNG import data_interface as _data_interface
 import pandas as pd
 import numpy as np
 from pyTNG.cosmology import TNGcosmo
+from astropy import units as u
 
 
 h = TNGcosmo.h
@@ -50,12 +51,15 @@ def reduce_df(df):
     return new_df
 
 
-def get_particle_dist(particles, df, index):
+# Note that this function assumes that df['r'] is in units of cm
+# and is therefore converted to kpc/h
+def get_particle_dist(particles, df, index, z):
     gal_center = np.array([df.loc[index]['Halo_pos_x'],
                            df.loc[index]['Halo_pos_y'],
                            df.loc[index]['Halo_pos_z']])
     rel_pos = particles['Coordinates']-gal_center
-    radius = df.loc[index]['r']*2
+    dist_to_cm = (1*u.kpc).to(u.cm).value/h/(1+z)
+    radius = df.loc[index]['r']*2/dist_to_cm
     dist = np.sqrt(np.sum(np.square(rel_pos), axis=1))
     rel_dist = dist/radius
     particles['rel_dist'] = rel_dist

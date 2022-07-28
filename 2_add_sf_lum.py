@@ -1,4 +1,6 @@
+from ast import excepthandler
 import os
+import re
 import pandas as pd
 import numpy as np
 import illustris_python as il
@@ -140,6 +142,8 @@ def get_subset(parts, idces):
                     raise
         if 'count' in parts:
             subset['count'] = newcount
+        if 'Redshift' in parts:
+            subset['Redshift'] = parts['Redshift']
     except KeyError as e:
         if str(e) == 'GFM_StellarFormationTime' and parts['count'] == 0:
             pass
@@ -174,6 +178,30 @@ def compute_large_gal_em(stars, specFac, idx):
     return ion_em, bol_lum
 
 
+# Function that adds all stars within half the stellar mass radius to the stars within
+# one stellar mass radius to safe the time of selecting the stars twice
+def merge_star_dict(star_dict, half_star_dict):
+    star_dict['count']
+    try:
+        for key, value in star_dict.items():
+            if key not in {'count', 'rel_dist', 'Redshift'}:
+                star_dict[key] = np.append(star_dict[key], half_star_dict[key])
+
+        if 'count' in star_dict:
+            star_dict['count'] += half_star_dict['count']
+    except KeyError as e:
+        if str(e) == 'GFM_StellarFormationTime' and ['count'] == 0:
+            pass
+        else:
+            raise
+    except:
+        print(key)
+        print(star_dict[key])
+        raise
+
+    return
+
+
 # Function which adds additional subhalo properties (luminosities,
 # ionizing luminosities, gas_masses, star_masses, sfrs, metallicities
 # and volumes) corresponding to only star forming gas cells
@@ -199,6 +227,12 @@ def add_sf_quantities(df, sim_path, snap_num, z):
     metallicities_r = []
     volumes_r = []
 
+    tot_bol_lums_2r = []
+    tot_ion_ems_2r = []
+
+    tot_bol_lums_r = []
+    tot_ion_ems_r = []
+
     specFac = build_spec_fac()
     for idx in df.index:
         print(f'Working on subhalo {idx}')
@@ -208,36 +242,64 @@ def add_sf_quantities(df, sim_path, snap_num, z):
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'gas')
         
         relevant_gas = get_star_forming_gas(gas)
-        get_particle_dist(relevant_gas, df, idx)
+        get_particle_dist(relevant_gas, df, idx, z)
+        get_particle_dist(stars, df, idx, z)
         idces_gas_in_rad = relevant_gas['rel_dist'] < 1
         idces_gas_in_half_rad = relevant_gas['rel_dist'] < 0.5
+
+        idces_stars_in_rad = stars['rel_dist'] < 1
+        idces_stars_in_half_rad = stars['rel_dist'] < 0.5
         
         gas_in_rad = get_subset(relevant_gas, idces_gas_in_rad)
         gas_in_half_rad = get_subset(relevant_gas, idces_gas_in_half_rad)
+        stars_in_rad = get_subset(stars, idces_stars_in_rad)
+        stars_in_half_rad = get_subset(stars, idces_stars_in_half_rad)
         get_radius_vol(gas_in_rad)
         get_radius_vol(gas_in_half_rad)
-        relevant_stars_rad = select_stars_in_gas(stars, gas_in_rad)
-        relevant_stars_half_rad = select_stars_in_gas(stars, gas_in_half_rad)
+        relevant_stars_half_rad = select_stars_in_gas(stars_in_half_rad, gas_in_half_rad)
+        relevant_stars_rad = select_stars_in_gas(stars_in_rad, gas_in_rad)
+        # Reload the relevant stars
+        stars_in_rad = get_subset(stars, idces_stars_in_rad)
+        stars_in_half_rad = get_subset(stars, idces_stars_in_half_rad)
         del stars
 
         # If no stars are left after filtering remove this halo from the df
-        if relevant_stars_half_rad['count'] == 0:
+        if stars_in_half_rad['count'] == 0:
             df.drop(index=idx, inplace=True)
             continue
 
-        relevant_stars_rad['ages'] = spectra._computeAgeFromFormationTime(relevant_stars_rad['Redshift'], 
-                                                                      relevant_stars_rad['GFM_StellarFormationTime'])
+        stars_in_rad['ages'] = spectra._computeAgeFromFormationTime(stars_in_rad['Redshift'], 
+                                                                      stars_in_rad['GFM_StellarFormationTime'])
 
-        relevant_stars_half_rad['ages'] = spectra._computeAgeFromFormationTime(relevant_stars_half_rad['Redshift'], 
-                                                                      relevant_stars_half_rad['GFM_StellarFormationTime'])
+        stars_in_half_rad['ages'] = spectra._computeAgeFromFormationTime(stars_in_half_rad['Redshift'], 
+                                                                      stars_in_half_rad['GFM_StellarFormationTime'])
 
-        if relevant_stars_rad['count'] < 10000:
-            ion_em_rad, bol_lum_rad = compute_small_gal_em(relevant_stars_rad, specFac, idx)
-            ion_em_half_rad, bol_lum_half_rad = compute_small_gal_em(relevant_stars_half_rad, specFac, idx)
+        if stars_in_rad['count'] < 10000:
+            tot_ion_em_rad, tot_bol_lum_rad = compute_small_gal_em(stars_in_rad, specFac, idx)
+            tot_ion_em_half_rad, tot_bol_lum_half_rad = compute_small_gal_em(stars_in_half_rad, specFac, idx)
         else:
-            ion_em_rad, bol_lum_rad = compute_large_gal_em(relevant_stars_rad, specFac, idx)
-            ion_em_half_rad, bol_lum_half_rad = compute_large_gal_em(relevant_stars_half_rad, specFac, idx)
-            
+            tot_ion_em_rad, tot_bol_lum_rad = compute_large_gal_em(stars_in_rad, specFac, idx)
+            tot_ion_em_half_rad, tot_bol_lum_half_rad = compute_large_gal_em(stars_in_half_rad, specFac, idx)
+
+
+        if relevant_stars_half_rad['count'] != 0:
+            relevant_stars_rad['ages'] = spectra._computeAgeFromFormationTime(relevant_stars_rad['Redshift'], 
+                                                                        relevant_stars_rad['GFM_StellarFormationTime'])
+
+            relevant_stars_half_rad['ages'] = spectra._computeAgeFromFormationTime(relevant_stars_half_rad['Redshift'], 
+                                                                        relevant_stars_half_rad['GFM_StellarFormationTime'])
+
+            if relevant_stars_rad['count'] < 10000:
+                ion_em_rad, bol_lum_rad = compute_small_gal_em(relevant_stars_rad, specFac, idx)
+                ion_em_half_rad, bol_lum_half_rad = compute_small_gal_em(relevant_stars_half_rad, specFac, idx)
+            else:
+                ion_em_rad, bol_lum_rad = compute_large_gal_em(relevant_stars_rad, specFac, idx)
+                ion_em_half_rad, bol_lum_half_rad = compute_large_gal_em(relevant_stars_half_rad, specFac, idx)
+        
+        else:
+            ion_em_rad, bol_lum_rad = 0., 0.
+            ion_em_half_rad, bol_lum_half_rad = 0., 0.
+
         bol_lums_2r.append(bol_lum_rad)
         ion_ems_2r.append(ion_em_rad)
         gas_masses_2r.append(np.sum(gas_in_rad['Masses']))
@@ -253,7 +315,13 @@ def add_sf_quantities(df, sim_path, snap_num, z):
         sfrs_r.append(np.sum(gas_in_half_rad['SFR']))
         metallicities_r.append(np.sum(gas_in_half_rad['Z']*gas_in_half_rad['Masses'])/np.sum(gas_in_half_rad['Masses']))
         volumes_r.append(np.sum(gas_in_half_rad['Volumes']))
-    
+
+        tot_bol_lums_2r.append(tot_bol_lum_rad)
+        tot_ion_ems_2r.append(tot_ion_em_rad)
+
+        tot_bol_lums_r.append(tot_bol_lum_half_rad)
+        tot_ion_ems_r.append(tot_ion_em_half_rad)
+
     df['Bol_lum_sf_2r'] = np.array(bol_lums_2r)*L_sun_to_erg_s
     df['Ion_em_sf_2r'] = np.array(ion_ems_2r)
     df['M_gas_sf_2r'] = np.array(gas_masses_2r)*mass_to_g
@@ -269,13 +337,19 @@ def add_sf_quantities(df, sim_path, snap_num, z):
     df['M_star_sf_r'] = np.array(star_masses_r)*mass_to_g
     df['V_sf_r'] = np.array(volumes_r)*volume_to_cm3
     df['Z_sf_r'] = np.array(metallicities_r)
+
+    df['Tot_Bol_lum_sf_2r'] = np.array(tot_bol_lums_2r)*L_sun_to_erg_s
+    df['Tot_Ion_em_sf_2r'] = np.array(tot_ion_ems_2r)
+
+    df['Tot_Bol_lum_sf_r'] = np.array(tot_bol_lums_r)*L_sun_to_erg_s
+    df['Tot_Ion_em_sf_r'] = np.array(tot_ion_ems_r)
     return
 
 
 if __name__ == '__main__':
-    level_1_name = '1_df.pickle'
+    level_1_name = '1_test_df.pickle'
     snap_num = 13
-    level_2_name = '2_df.pickle'
+    level_2_name = '2_test_df.pickle'
     base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
 
     df_path = os.path.join(base, level_1_name)

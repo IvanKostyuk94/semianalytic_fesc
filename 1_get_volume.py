@@ -73,7 +73,11 @@ def update_df(df, sim_path, snap_num, z):
     tot_star_masses_half_rad = []
 
     mass_to_g = (1*u.Msun).to(u.g).value*1e10/h
-    volume_to_cm3 = ((1*u.kpc).to(u.cm)/h/(1+z))**3
+    volume_to_cm3 = ((1*u.kpc).to(u.cm).value/h/(1+z))**3
+    dist_to_cm = (1*u.kpc).to(u.cm).value/h/(1+z)
+    
+    # r is converted here to cm to be consistend with the use of get_particle_dist
+    df['r'] = df['r']*dist_to_cm
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'gas')
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, 'stars')
@@ -153,8 +157,6 @@ def reformat_df(df, z):
     columns_to_drop = ['M_gas_r', 'M_gas_2r', 'M_star_r', 'M_star_2r']
     df.drop(labels=columns_to_drop, inplace=True, axis=1)
 
-    dist_to_cm = (1*u.kpc).to(u.cm)/h/(1+z)
-    df['r'] = df['r']*dist_to_cm
     df['Redshift'] = z
 
     to_rename = {'Masses_r': 'M_gas_r', 'Masses_2r': 'M_gas_2r',
@@ -165,9 +167,9 @@ def reformat_df(df, z):
 
 
 if __name__ == '__main__':
-    level_0_name = '0_df.pickle'
+    level_0_name = '1_test_df.pickle'
     snap_num = 13
-    level_1_name = '1_df.pickle'
+    level_1_name = '1_test_df.pickle'
     base = '/ptmp/mpa/ivkos/semianalytic_fesc/sn013'
 
     df_path = os.path.join(base, level_0_name)
