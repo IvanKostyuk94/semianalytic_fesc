@@ -103,10 +103,12 @@ def select_stars_in_gas(stars, gas):
     for i, center in enumerate(gas['Centers']):
         get_stellar_dist_gas(stars, center, gas['Radii'][i])
         new_stars = stars['rel_dist'] < 1
-        for key in stars.keys():
-            if key not in {'count', 'Redshift', 'rel_dist'}:
-                relevant_stars[key].extend(stars[key][new_stars])
-                stars[key] = np.delete(stars[key], new_stars, axis=0)
+        if any(new_stars):
+            stars_to_delete = [element for element, x in enumerate(new_stars) if x]
+            for key in stars.keys():
+                if key not in {'count', 'Redshift', 'rel_dist'}:
+                    relevant_stars[key].extend(stars[key][new_stars])
+                    stars[key] = np.delete(stars[key], stars_to_delete, axis=0)
         relevant_stars['count'] += np.sum(new_stars)
     for key in stars.keys():
         if key not in {'count', 'Redshift', 'rel_dist'}:
@@ -263,7 +265,6 @@ def add_sf_quantities(df, sim_path, snap_num, z):
         stars_in_half_rad = get_subset(stars, idces_stars_in_half_rad)
         del stars
 
-        # If no stars are left after filtering remove this halo from the df
         if stars_in_half_rad['count'] == 0:
             df.drop(index=idx, inplace=True)
             continue
