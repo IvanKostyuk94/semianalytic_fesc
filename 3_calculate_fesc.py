@@ -411,18 +411,18 @@ def f_esc(df):
         axis=1,
     )
     df["f_esc_2r"] = df.apply(
-        lambda x: 0 if x["f_g_2r"] > x["f_g_crit_2r"] else escape_fraction(x, mode="r"),
+        lambda x: 0 if x["f_g_2r"] > x["f_g_crit_2r"] else escape_fraction(x, mode="2r"),
         axis=1,
     )
     df["f_esc_sf_r"] = df.apply(
         lambda x: 0
-        if x["f_g_sf_r"] < x["f_g_crit_sf_r"]
+        if x["f_g_sf_r"] > x["f_g_crit_sf_r"]
         else escape_fraction(x, mode="sf_r"),
         axis=1,
     )
     df["f_esc_sf_2r"] = df.apply(
         lambda x: 0
-        if x["f_g_sf_2r"] < x["f_g_crit_sf_2r"]
+        if x["f_g_sf_2r"] > x["f_g_crit_sf_2r"]
         else escape_fraction(x, mode="sf_2r"),
         axis=1,
     )
