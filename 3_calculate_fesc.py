@@ -189,16 +189,16 @@ def column_dens_stroemgren(df):
     case_B_param = 2.6e-13
     meter_to_cm = 100
     df["Column_dens_stroemgren_r"] = (
-        df["f_g_r"] * constants.c.value * meter_to_cm / case_B_param
+        df["U_r"] * constants.c.value * meter_to_cm / case_B_param
     )
     df["Column_dens_stroemgren_2r"] = (
-        df["f_g_2r"] * constants.c.value * meter_to_cm / case_B_param
+        df["U_2r"] * constants.c.value * meter_to_cm / case_B_param
     )
     df["Column_dens_stroemgren_sf_r"] = (
-        df["f_g_sf_r"] * constants.c.value * meter_to_cm / case_B_param
+        df["U_sf_r"] * constants.c.value * meter_to_cm / case_B_param
     )
     df["Column_dens_stroemgren_sf_2r"] = (
-        df["f_g_sf_2r"] * constants.c.value * meter_to_cm / case_B_param
+        df["U_sf_2r"] * constants.c.value * meter_to_cm / case_B_param
     )
     return
 
