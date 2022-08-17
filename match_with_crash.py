@@ -1,3 +1,4 @@
+from email.message import EmailMessage
 import pandas as pd
 import numpy as np
 import os
@@ -12,11 +13,32 @@ def get_parent_halo_ids(df, snap_num):
     return
 
 
-def calculate_halo_fesc(df):
-    fesc = df.groupby("Parent").apply(
-        lambda gr: np.sum(gr["f_esc_sf_r"] * gr["Ion_em_sf_r"])
-        / gr["Ion_em_sf_r"].sum()
-    )
+def get_sfr_em(df):
+    df["Ion_em_sfr_r"] = df["Ion_flux_sf_r"] * np.pi * df["r"]
+    df["Ion_em_sfr_2r"] = df["Ion_flux_sf_2r"] * np.pi * df["2r"]
+    return
+
+
+def emissivity(fesc_prop):
+    emissivity_dict = {
+        "f_esc_r": "Ion_em_sfr_r",
+        "f_esc_2r": "Ion_em_sfr_2r",
+        "f_esc_sf_r": "Ion_em_sf_r",
+        "f_esc_sf_2r": "Ion_em_sf_2r",
+    }
+    return emissivity_dict[fesc_prop]
+
+
+def calculate_halo_fesc(df, fesc_types=None):
+    if fesc_types == None:
+        fesc_types = ["f_esc_r", "f_esc_2r", "f_esc_sf_r", "f_esc_sf_2r"]
+
+    fesc = {}
+    for type in fesc_types:
+        fesc[type] = df.groupby("Parent").apply(
+            lambda gr: np.sum(gr[type] * gr[emissivity[type]])
+            / gr[emissivity[type]].sum()
+        )
     return fesc
 
 
@@ -29,7 +51,8 @@ def get_crash_halos_z(z, df_name="full_esc_updated.pickle"):
 
 
 def add_semianalytic_fesc(df_z, fesc):
-    df_z["fesc_semi"] = fesc.loc[df_z.index]
+    for key in fesc:
+        df_z[key + "_semi"] = fesc[key].loc[df_z.index]
     return
 
 
