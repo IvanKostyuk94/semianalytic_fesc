@@ -14,8 +14,8 @@ def get_parent_halo_ids(df, snap_num):
 
 
 def get_sfr_em(df):
-    df["Ion_em_sfr_r"] = df["Ion_flux_sf_r"] * np.pi * df["r"]
-    df["Ion_em_sfr_2r"] = df["Ion_flux_sf_2r"] * np.pi * df["2r"]
+    df["Ion_em_sfr_r"] = df["Ion_flux_sf_r"] * np.pi * df["r"] ** 2
+    df["Ion_em_sfr_2r"] = df["Ion_flux_sf_2r"] * np.pi * (df["r"] * 2) ** 2
     return
 
 
@@ -35,11 +35,20 @@ def calculate_halo_fesc(df, fesc_types=None):
 
     fesc = {}
     for type in fesc_types:
-        fesc[type] = df.groupby("Parent").apply(
-            lambda gr: np.sum(gr[type] * gr[emissivity[type]])
-            / gr[emissivity[type]].sum()
+        fesc[type] = (
+            df.fillna(0)
+            .groupby("Parent")
+            .apply(
+                lambda gr: np.sum(gr[type] * gr[emissivity(type)])
+                / gr[emissivity(type)].sum()
+            )
         )
     return fesc
+
+
+def calculate_halo_Q0(df):
+    halo_Q0 = df.fillna(0).groupby("Parent").apply(lambda gr: gr["Ion_em_sf_2r"].sum())
+    return halo_Q0
 
 
 def get_crash_halos_z(z, df_name="full_esc_updated.pickle"):
@@ -47,12 +56,22 @@ def get_crash_halos_z(z, df_name="full_esc_updated.pickle"):
     path_to_sel_df = os.path.join(path_to_dfs, df_name)
     full_df = pd.read_pickle(path_to_sel_df)
     df_z = full_df[full_df.z == z]
+    df_z.set_index("ID", inplace=True)
     return df_z
 
 
 def add_semianalytic_fesc(df_z, fesc):
     for key in fesc:
-        df_z[key + "_semi"] = fesc[key].loc[df_z.index]
+        df_z[key + "_semi"] = np.nan
+        used_idx = list(set(df_z.index).intersection(set(fesc[key].index)))
+        df_z.loc[used_idx, key + "_semi"] = fesc[key].loc[used_idx]
+    return
+
+
+def add_semianalytic_Q0(df_z, halo_Q0):
+    df_z["halo_Q0_semi"] = np.nan
+    used_idx = list(set(df_z.index).intersection(set(halo_Q0.index)))
+    df_z.loc[used_idx, "halo_Q0_semi"] = halo_Q0.loc[used_idx]
     return
 
 
@@ -64,10 +83,15 @@ def get_z(snap_num):
         raise KeyError("No Crash results are provided for this snapshot")
 
 
-def get_crash_df_with_semi(df, snap_num, df_name="full_esc_updated.pickle"):
+def get_crash_df_with_semi(
+    df, snap_num, df_name="full_esc_updated.pickle", fesc_types=None
+):
     get_parent_halo_ids(df, snap_num)
-    fesc = calculate_halo_fesc(df)
+    get_sfr_em(df)
+    fesc = calculate_halo_fesc(df, fesc_types)
+    halo_Q0 = calculate_halo_Q0(df)
     z = get_z(snap_num)
     df_z = get_crash_halos_z(z, df_name=df_name)
     add_semianalytic_fesc(df_z, fesc)
+    add_semianalytic_Q0(df_z, halo_Q0)
     return df_z
