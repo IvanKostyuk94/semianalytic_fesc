@@ -146,7 +146,7 @@ def plot_prop_dependence(
     df = df.dropna(subset=[prop_x, prop_y])
 
     if log_x and log_y:
-        df = df[(df[prop_x] != 0) | (df[prop_y] != 0)]
+        df = df[(df[prop_x] != 0) & (df[prop_y] != 0)]
     if log_x:
         x_val = np.log10(df[prop_x])
     else:
@@ -160,8 +160,6 @@ def plot_prop_dependence(
     ax.scatter(x_val, y_val, s=scattersize)
     if lin_fit:
         m, b = np.polyfit(x_val, y_val, 1)
-        print(m)
-        print(b)
         x_grid = np.linspace(np.min(x_val), np.max(x_val), 100)
         ax.plot(x_grid, m * x_grid + b, color="black", linewidth=4)
 

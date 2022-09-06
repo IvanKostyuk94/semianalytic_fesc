@@ -411,7 +411,9 @@ def f_esc(df):
         axis=1,
     )
     df["f_esc_2r"] = df.apply(
-        lambda x: 0 if x["f_g_2r"] > x["f_g_crit_2r"] else escape_fraction(x, mode="2r"),
+        lambda x: 0
+        if x["f_g_2r"] > x["f_g_crit_2r"]
+        else escape_fraction(x, mode="2r"),
         axis=1,
     )
     df["f_esc_sf_r"] = df.apply(
