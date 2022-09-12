@@ -3,7 +3,7 @@ import os
 
 
 def build_new_df(snap_num, save_name="df", base="/ptmp/mpa/ivkos/semianalytic_fesc"):
-    sim, simpath = get_sim()
+    sim, _ = get_sim()
     full_df = get_dataset_df(sim, snap_num=snap_num)
     save_df = reduce_df(full_df)
     snap = get_snap(snap_num)
@@ -18,7 +18,4 @@ def build_new_df(snap_num, save_name="df", base="/ptmp/mpa/ivkos/semianalytic_fe
 
 if __name__ == "__main__":
     snap_num = 13
-    snaps = [4, 8, 13]
-    for snap_num in snaps:
-        build_new_df(snap_num, base="/u/ivkos/analysis/dfs/all_tng_halos")
-    # build_new_df(snap_num)
+    build_new_df(snap_num)
