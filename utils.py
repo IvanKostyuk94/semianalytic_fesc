@@ -38,8 +38,10 @@ def get_dataset_df(sim, snap_num):
 
 
 def reduce_df(df):
-    filt = (df[("SubhaloMassInRadType", 4)] * 1e10 / h > 5e5) & (
-        df[("SubhaloSFRinRad", 0)] > 0
+    filt = (
+        (df[("SubhaloMassInRadType", 4)] * 1e10 / h > 5e5)
+        & (df[("SubhaloSFRinRad", 0)] > 0)
+        & (df[("SubhaloMassInRadType")] > 0)
     )
     reduced_df = df[filt]
 
@@ -62,7 +64,7 @@ def reduce_df(df):
 
 # Note that this function assumes that df['r'] is in units of cm
 # and is therefore converted to kpc/h
-def get_particle_dist(particles, df, index, z):
+def get_particle_dist(particles, df, index, z, is_relative=False):
     gal_center = np.array(
         [
             df.loc[index]["Halo_pos_x"],
@@ -70,7 +72,10 @@ def get_particle_dist(particles, df, index, z):
             df.loc[index]["Halo_pos_z"],
         ]
     )
-    rel_pos = particles["Coordinates"] - gal_center
+    if is_relative:
+        rel_pos = particles["Coordinates"]
+    else:
+        rel_pos = particles["Coordinates"] - gal_center
     dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
     radius = df.loc[index]["r"] * 2 / dist_to_cm
     dist = np.sqrt(np.sum(np.square(rel_pos), axis=1))
