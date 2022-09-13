@@ -41,7 +41,7 @@ def reduce_df(df):
     filt = (
         (df[("SubhaloMassInRadType", 4)] * 1e10 / h > 5e5)
         & (df[("SubhaloSFRinRad", 0)] > 0)
-        & (df[("SubhaloMassInRadType", 0)] > 0)
+        & (df[("SubhaloMassInRadType", 0)] * 1e10 / h > 2e5)
     )
     reduced_df = df[filt]
 
