@@ -77,7 +77,6 @@ def select_sphere_particles(particles, df, idx, z, is_relative):
 
 
 def get_relative_coord(particles, df, idx):
-    print(df.loc[idx]["Halo_pos_x"])
     gal_center = np.array(
         [
             df.loc[idx]["Halo_pos_x"],
@@ -89,30 +88,37 @@ def get_relative_coord(particles, df, idx):
     return
 
 
-def create_particle_box(particles, df, idx, z):
+def create_particle_box(particles, df, idx, z, stars=None):
     get_relative_coord(particles, df, idx)
-    print("here")
     sphere_particles = select_sphere_particles(particles, df, idx, z, is_relative=True)
-    if sphere_particles["count"] == 0:
-        df.drop(index=idx, inplace=True)
-        return
-    print("i am here")
+    # Send a flag identifying that there are too few gas particles for a proper resolution
+    if sphere_particles["count"] < 5:
+        if stars != None:
+            return 0, 0
+        else:
+            return 0
     pca = PCA(3)
     pca.fit(sphere_particles["Coordinates"])
     particles["Coordinates"] = pca.transform(particles["Coordinates"])
     get_normed_coord(particles, df, idx, z, is_relative=True)
     box_particles = select_box_particles(particles)
-    return box_particles
+    if stars != None:
+        get_relative_coord(stars, df, idx)
+        stars["Coordinates"] = pca.transform(stars["Coordinates"])
+        get_normed_coord(stars, df, idx, z, is_relative=True)
+        box_stars = select_box_particles(stars)
+        return box_particles, box_stars
+    else:
+        return box_particles
 
 
-def get_scale_height(data, interval, redshift):
+def get_scale_height(data, interval):
     data = sorted(data)
     lower = int(len(data) * (1 - interval) / 2)
     upper = int(len(data) * (1 + interval) / 2)
     scale_height = (data[upper] - data[lower]) / 2
 
-    dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + redshift)
-    scale_height_cm = scale_height * dist_to_cm
+    scale_height_cm = scale_height
     return scale_height_cm
 
 
@@ -168,14 +174,45 @@ def merge_gas_wind(gas, wind):
 
 # Adds scale height, gas and star-masses
 def update_df_height(df, sim_path, snap_num, z):
+    dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
+    mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
+    df.loc[:, "r"] *= dist_to_cm
+
     scale_heights = []
+    gas_masses = []
+    star_masses = []
+
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
         wind, stars = separate_wind_stars(wind_stars)
-        merge_gas_wind(gas, wind)
-        box_particles = create_particle_box(gas, df, idx, z)
+        gas_wind = merge_gas_wind(gas, wind)
+        box_particles, box_stars = create_particle_box(gas_wind, df, idx, z, stars)
+        if box_particles == 0:
+            print(f"Dropping halo {idx}: too few particles")
+            df.drop(idx, inplace=True)
+            continue
         heights = box_particles["Coordinates"].T[2]
 
         scale_height_intervall = 1 - 1 / np.e
-        scale_height_cm = get_scale_height(heights, scale_height_intervall)
+        scale_height = get_scale_height(heights, scale_height_intervall)
+        scale_heights.append(scale_height)
+        gas_masses.append(box_particles["Masses"].sum())
+        star_masses.append(box_stars["Masses"].sum())
+
+    df["Column_height"] = np.array(scale_heights) * dist_to_cm
+    df["Gas_mass"] = np.array(gas_masses) * mass_to_g
+    df["Star_mass"] = np.array(star_masses) * mass_to_g
+    return
+
+
+if __name__ == "__main__":
+    sim, sim_path = get_sim()
+    snap_num = 13
+    z = get_redshift(sim, snap_num)
+    base = "/ptmp/mpa/ivkos/semianalytic_fesc/sn013"
+    full_path = os.path.join(base, "0_df.pickle")
+    df = pd.read_pickle(full_path)
+    update_df_height(df, sim_path, snap_num, z)
+    save_path = os.path.join(base, "height_df.pickle")
+    df.to_pickle(save_path)
