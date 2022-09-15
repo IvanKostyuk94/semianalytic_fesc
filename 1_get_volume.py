@@ -17,7 +17,10 @@ def keepWindParticles(starAndWindParts):
         idces = starAndWindParts["GFM_StellarFormationTime"] < 0
         utils._keepPartsByIdx(starAndWindParts, idces)
     except KeyError as e:
-        if str(e) == "GFM_StellarFormationTime" and starAndWindParts["count"] == 0:
+        if (
+            str(e) == "GFM_StellarFormationTime"
+            and starAndWindParts["count"] == 0
+        ):
             pass
         else:
             raise
@@ -54,7 +57,10 @@ def separate_wind_stars(starAndWindParts):
             wind["count"] = newcount_wind
             stars["count"] = newcount_stars
     except KeyError as e:
-        if str(e) == "GFM_StellarFormationTime" and starAndWindParts["count"] == 0:
+        if (
+            str(e) == "GFM_StellarFormationTime"
+            and starAndWindParts["count"] == 0
+        ):
             pass
         else:
             raise
