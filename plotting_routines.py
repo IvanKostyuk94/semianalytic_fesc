@@ -483,7 +483,6 @@ def get_levels(hist_cont, thresholds):
             count_sum += counts[i]
             i += 1
         levels.append(counts[i])
-    # print(levels)
     return levels
 
 
