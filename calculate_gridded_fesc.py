@@ -132,209 +132,80 @@ def outflow_vel(maps):
     ) ** 0.5
 
 
-# Stopped here!
 def add_outflow_vel(maps):
-    maps["v_inf_r"] = maps.apply(
-        lambda x: 0 if x["p_r_r"] < x["p_g_r"] else outflow_vel(x, mode="r"),
-        axis=1,
+    maps["v_inf"] = np.where(maps["p_r"] > maps["p_g"], outflow_vel(maps), 0)
+    return
+
+
+def column_dens_ratio(maps):
+    maps["N_ratio"] = maps["Column_dens"] / maps["N_d"]
+    return
+
+
+def critical_gas_fraction(maps):
+    return 6 * (
+        maps["Dust_norm"]
+        * maps["U1"]
+        * ((1 - maps["N_ratio"]) / maps["N_ratio"])
+    ) ** (1 / 3)
+
+
+def add_critical_gas_fraction(maps):
+    maps["f_g_crit"] = np.where(
+        maps["N_ratio"] < 1, critical_gas_fraction(maps), 0
     )
     return
 
 
-def column_dens_ratio(df):
-    df["N_ratio_r"] = df["Column_dens_r"] / df["N_d_r"]
-    df["N_ratio_2r"] = df["Column_dens_2r"] / df["N_d_2r"]
-    df["N_ratio_sf_r"] = df["Column_dens_r"] / df["N_d_sf_r"]
-    df["N_ratio_sf_2r"] = df["Column_dens_2r"] / df["N_d_sf_2r"]
-    return
-
-
-def critical_gas_fraction(element, mode="r"):
-    if mode == "r":
-        return 6 * (
-            element["Dust_norm_r"]
-            * element["U1_r"]
-            * ((1 - element["N_ratio_r"]) / element["N_ratio_r"])
-        ) ** (1 / 3)
-    elif mode == "2r":
-        return 6 * (
-            element["Dust_norm_2r"]
-            * element["U1_2r"]
-            * ((1 - element["N_ratio_2r"]) / element["N_ratio_2r"])
-        ) ** (1 / 3)
-    elif mode == "sf_r":
-        return 6 * (
-            element["Dust_norm_sf_r"]
-            * element["U1_sf_r"]
-            * ((1 - element["N_ratio_sf_r"]) / element["N_ratio_sf_r"])
-        ) ** (1 / 3)
-    elif mode == "sf_2r":
-        return 6 * (
-            element["Dust_norm_sf_2r"]
-            * element["U1_sf_2r"]
-            * ((1 - element["N_ratio_sf_2r"]) / element["N_ratio_sf_2r"])
-        ) ** (1 / 3)
-    else:
-        raise NotImplementedError(f"Mode {mode} is not implemented yet")
-
-
-def add_critical_gas_fraction(df):
-    df["f_g_crit_r"] = df.apply(
-        lambda x: 0
-        if x["N_ratio_r"] > 1
-        else critical_gas_fraction(x, mode="r"),
-        axis=1,
-    )
-    df["f_g_crit_2r"] = df.apply(
-        lambda x: 0
-        if x["N_ratio_2r"] > 1
-        else critical_gas_fraction(x, mode="2r"),
-        axis=1,
-    )
-    df["f_g_crit_sf_r"] = df.apply(
-        lambda x: 0
-        if x["N_ratio_sf_r"] > 1
-        else critical_gas_fraction(x, mode="sf_r"),
-        axis=1,
-    )
-    df["f_g_crit_sf_2r"] = df.apply(
-        lambda x: 0
-        if x["N_ratio_sf_2r"] > 1
-        else critical_gas_fraction(x, mode="sf_2r"),
-        axis=1,
-    )
-    return
-
-
-def evac_gas_frac(df):
+def evac_gas_frac(maps):
     sec_per_Myr = (1 * u.Myr).to(u.s).value
     t_OB = 2 * sec_per_Myr
-    df["w_r"] = 0.5 * df["v_inf_r"] * t_OB / df["Column_height_r"]
-    df["w_2r"] = 0.5 * df["v_inf_2r"] * t_OB / df["Column_height_2r"]
-    df["w_sf_r"] = 0.5 * df["v_inf_sf_r"] * t_OB / df["Column_height_r"]
-    df["w_sf_2r"] = 0.5 * df["v_inf_sf_2r"] * t_OB / df["Column_height_2r"]
+    maps["w"] = 0.5 * maps["v_inf"] * t_OB / maps["Column_height"]
 
     # Correction in case of full evaculation
-    df["w_r"] = df.apply(lambda x: x["w_r"] if x["w_r"] < 1 else 1, axis=1)
-    df["w_2r"] = df.apply(lambda x: x["w_2r"] if x["w_2r"] < 1 else 1, axis=1)
-    df["w_sf_r"] = df.apply(
-        lambda x: x["w_sf_r"] if x["w_sf_r"] < 1 else 1, axis=1
+    maps["w"] = np.where(maps["w"] > 1, 1, maps["w"])
+    return
+
+
+def reduced_column_den(maps):
+    maps["N_red"] = (1 - maps["w"]) * maps["Column_dens"]
+    return
+
+
+def escape_fraction(maps):
+    return np.exp(
+        -maps["N_red"] * (1 / maps["Column_dens_stroemgren"] + 1 / maps["N_d"])
     )
-    df["w_sf_2r"] = df.apply(
-        lambda x: x["w_sf_2r"] if x["w_sf_2r"] < 1 else 1, axis=1
+
+
+def f_esc(maps):
+    maps["f_esc"] = np.where(
+        maps["f_g"] < maps["f_g_crit"], escape_fraction(maps), 0
     )
     return
 
 
-def reduced_column_den(df):
-    df["N_red_r"] = (1 - df["w_r"]) * df["Column_dens_r"]
-    df["N_red_2r"] = (1 - df["w_2r"]) * df["Column_dens_2r"]
-    df["N_red_sf_r"] = (1 - df["w_sf_r"]) * df["Column_dens_r"]
-    df["N_red_sf_2r"] = (1 - df["w_sf_2r"]) * df["Column_dens_2r"]
-    return
-
-
-def escape_fraction(element, mode):
-    if mode == "r":
-        return np.exp(
-            -element["N_red_r"]
-            * (1 / element["Column_dens_stroemgren_r"] + 1 / element["N_d_r"])
-        )
-    elif mode == "2r":
-        return np.exp(
-            -element["N_red_2r"]
-            * (
-                1 / element["Column_dens_stroemgren_2r"]
-                + 1 / element["N_d_2r"]
-            )
-        )
-    elif mode == "sf_r":
-        return np.exp(
-            -element["N_red_sf_r"]
-            * (
-                1 / element["Column_dens_stroemgren_sf_r"]
-                + 1 / element["N_d_sf_r"]
-            )
-        )
-    elif mode == "sf_2r":
-        return np.exp(
-            -element["N_red_sf_2r"]
-            * (
-                1 / element["Column_dens_stroemgren_sf_2r"]
-                + 1 / element["N_d_sf_2r"]
-            )
-        )
-    else:
-        raise NotImplementedError(f"The mode {mode} is not implemented yet")
-
-
-def f_esc(df):
-    df["f_esc_r"] = df.apply(
-        lambda x: 0
-        if x["f_g_r"] > x["f_g_crit_r"]
-        else escape_fraction(x, mode="r"),
-        axis=1,
-    )
-    df["f_esc_2r"] = df.apply(
-        lambda x: 0
-        if x["f_g_2r"] > x["f_g_crit_2r"]
-        else escape_fraction(x, mode="2r"),
-        axis=1,
-    )
-    df["f_esc_sf_r"] = df.apply(
-        lambda x: 0
-        if x["f_g_sf_r"] > x["f_g_crit_sf_r"]
-        else escape_fraction(x, mode="sf_r"),
-        axis=1,
-    )
-    df["f_esc_sf_2r"] = df.apply(
-        lambda x: 0
-        if x["f_g_sf_2r"] > x["f_g_crit_sf_2r"]
-        else escape_fraction(x, mode="sf_2r"),
-        axis=1,
-    )
-
-    df["f_esc_r"] = df.apply(
-        lambda x: 1 if np.isnan(x["Column_dens_r"]) else x["f_esc_r"], axis=1
-    )
-    df["f_esc_2r"] = df.apply(
-        lambda x: 1 if np.isnan(x["Column_dens_2r"]) else x["f_esc_2r"], axis=1
-    )
-    df["f_esc_sf_r"] = df.apply(
-        lambda x: 1 if np.isnan(x["Column_dens_r"]) else x["f_esc_sf_r"],
-        axis=1,
-    )
-    df["f_esc_sf_2r"] = df.apply(
-        lambda x: 1 if np.isnan(x["Column_dens_2r"]) else x["f_esc_sf_2r"],
-        axis=1,
-    )
-    return
-
-
-def update_to_fesc(df):
-
-    get_column_height_dens(df)
-    get_lum_from_sfr(df)
-    sf_ionizing_flux(df)
-    sf_bol_flux(df)
-    normalized_dust(df)
-    gas_fraction(df)
-    N_crit(df)
-    normalized_dust(df)
-    dust_crosssection_per_H(df)
-    gravitational_pressure(df)
-    particle_dens(df)
-    photon_to_gas(df)
-    column_dens_stroemgren(df)
-    U1(df)
-    tau_dust(df)
-    radiation_pressure(df)
-    add_outflow_vel(df)
-    column_dens_ratio(df)
-    add_critical_gas_fraction(df)
-    evac_gas_frac(df)
-    reduced_column_den(df)
-    f_esc(df)
+def update_to_fesc(maps):
+    get_column_height_dens(maps)
+    get_lum_from_sfr(maps)
+    normalized_dust(maps)
+    gas_fraction(maps)
+    N_crit(maps)
+    normalized_dust(maps)
+    dust_crosssection_per_H(maps)
+    gravitational_pressure(maps)
+    particle_dens(maps)
+    photon_to_gas(maps)
+    column_dens_stroemgren(maps)
+    U1(maps)
+    tau_dust(maps)
+    radiation_pressure(maps)
+    add_outflow_vel(maps)
+    column_dens_ratio(maps)
+    add_critical_gas_fraction(maps)
+    evac_gas_frac(maps)
+    reduced_column_den(maps)
+    f_esc(maps)
     return
 
 
