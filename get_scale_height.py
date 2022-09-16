@@ -6,6 +6,7 @@ import astropy.units as u
 from pyTNG.cosmology import TNGcosmo
 from utils import get_particle_dist, get_sim, get_redshift, get_snap
 from sklearn.decomposition import PCA
+from scipy.stats import binned_statistic_2d
 
 
 h = TNGcosmo.h
@@ -87,7 +88,7 @@ def get_relative_coord(particles, df, idx):
     return
 
 
-def create_particle_box(particles, df, idx, z, stars=None):
+def create_particle_box(gas, particles, df, idx, z, stars=None):
     get_relative_coord(particles, df, idx)
     sphere_particles = select_sphere_particles(
         particles, df, idx, z, is_relative=True
@@ -104,14 +105,20 @@ def create_particle_box(particles, df, idx, z, stars=None):
     particles["Coordinates"] = pca.transform(particles["Coordinates"])
     get_normed_coord(particles, df, idx, z, is_relative=True)
     box_particles = select_box_particles(particles)
+
+    get_relative_coord(gas, df, idx)
+    gas["Coordinates"] = pca.transform(gas["Coordinates"])
+    get_normed_coord(gas, df, idx, z, is_relative=True)
+    box_gas = select_box_particles(gas)
+
     if stars is not None:
         get_relative_coord(stars, df, idx)
         stars["Coordinates"] = pca.transform(stars["Coordinates"])
         get_normed_coord(stars, df, idx, z, is_relative=True)
         box_stars = select_box_particles(stars)
-        return box_particles, box_stars
+        return box_gas, box_particles, box_stars
     else:
-        return box_particles
+        return box_gas, box_particles
 
 
 def get_scale_height(box_particles, interval=None):
@@ -179,6 +186,36 @@ def merge_gas_wind(gas, wind):
     return all_gas
 
 
+def get_grid_cell_num(radius, approx_grid_size, dist_to_cm):
+    approx_grid_size_cm = approx_grid_size * dist_to_cm
+    grid_cell_num = int(2 * radius / approx_grid_size_cm)
+    return grid_cell_num
+
+
+def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
+    x = box_particles["Coordinates"][:, 0]
+    y = box_particles["Coordinates"][:, 1]
+    masses = box_particles["Masses"]
+    binned_masses, x_edges, y_edges, _ = binned_statistic_2d(
+        x, y, values=masses, statistic="sum", bins=grid_cell_num
+    )
+
+    x_gas = box_gas["Coordinates"][:, 0]
+    y_gas = box_gas["Coordinates"][:, 1]
+    sfr = box_gas["StarFormationRate"]
+    binned_sfr, *_ = binned_statistic_2d(
+        x_gas, y_gas, values=sfr, statistic="sum", bins=grid_cell_num
+    )
+
+    x_stars = box_stars["Coordinates"][:, 0]
+    y_stars = box_stars["Coordinates"][:, 1]
+    stars = box_stars["Masses"]
+    binned_stars, *_ = binned_statistic_2d(
+        x_stars, y_stars, values=stars, statistic="sum", bins=grid_cell_num
+    )
+    return binned_masses, binned_sfr, binned_stars, x_edges, y_edges
+
+
 # Adds scale height, gas and star-masses
 def update_df_columns(df, sim_path, snap_num, z):
     dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
@@ -194,8 +231,8 @@ def update_df_columns(df, sim_path, snap_num, z):
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
         wind, stars = separate_wind_stars(wind_stars)
         gas_wind = merge_gas_wind(gas, wind)
-        box_particles, box_stars = create_particle_box(
-            gas_wind, df, idx, z, stars
+        box_gas, box_particles, box_stars = create_particle_box(
+            gas, gas_wind, df, idx, z, stars
         )
         if box_particles == 0:
             print(f"Dropping halo {idx}: too few particles")
