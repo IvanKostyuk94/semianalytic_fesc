@@ -189,15 +189,28 @@ def merge_gas_wind(gas, wind):
 def get_grid_cell_num(radius, approx_grid_size, dist_to_cm):
     approx_grid_size_cm = approx_grid_size * dist_to_cm
     grid_cell_num = int(2 * radius / approx_grid_size_cm)
-    return grid_cell_num
+    grid_cell_size = 2 * radius * dist_to_cm / grid_cell_num
+    return grid_cell_num, grid_cell_size
 
 
 def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
-    x = box_particles["Coordinates"][:, 0]
-    y = box_particles["Coordinates"][:, 1]
+    x_particles = box_particles["Coordinates"][:, 0]
+    y_particles = box_particles["Coordinates"][:, 1]
     masses = box_particles["Masses"]
     binned_masses, x_edges, y_edges, _ = binned_statistic_2d(
-        x, y, values=masses, statistic="sum", bins=grid_cell_num
+        x_particles,
+        y_particles,
+        values=masses,
+        statistic="sum",
+        bins=grid_cell_num,
+    )
+    metallicities = box_particles["GFM_Metallicity"]
+    binned_metallicities, x_edges, y_edges, _ = binned_statistic_2d(
+        x_particles,
+        y_particles,
+        values=metallicities,
+        statistic="sum",
+        bins=grid_cell_num,
     )
 
     x_gas = box_gas["Coordinates"][:, 0]
@@ -213,7 +226,14 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
     binned_stars, *_ = binned_statistic_2d(
         x_stars, y_stars, values=stars, statistic="sum", bins=grid_cell_num
     )
-    return binned_masses, binned_sfr, binned_stars, x_edges, y_edges
+
+    mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
+    maps = {}
+    maps["M_gas"] = binned_masses * mass_to_g
+    maps["M_stars"] = binned_stars * mass_to_g
+    maps["SFR"] = binned_sfr
+    maps["Metallicity"] = binned_metallicities
+    return maps
 
 
 # Adds scale height, gas and star-masses
