@@ -1,10 +1,12 @@
 import os
+from time import sleep
 import pyTNG.utils as utils
 from pyTNG import data_interface as _data_interface
 import pandas as pd
 import numpy as np
 from pyTNG.cosmology import TNGcosmo
 from astropy import units as u
+import random
 
 
 h = TNGcosmo.h
@@ -102,3 +104,21 @@ def get_snap(snap_num):
         return f"sn00{snap_num}"
     else:
         return f"sn0{snap_num}"
+
+
+# Returns a subdf of galaxies with various masses
+# Returned df does not necessarely contain 'sample_size'
+# elements as some bins do not contain a galaxy
+def select_sample_df(df, column="M_star_2r", sample_size=100, log=True):
+    if log:
+        group_values = np.log10(df[column])
+    else:
+        group_values = df[column]
+    bins = pd.cut(group_values, sample_size)
+    selected_idces = []
+    for idces in group_values.groupby(bins).groups.values():
+        if len(idces) > 0:
+            selected_idces.append(random.choice(idces))
+    selected_idces = selected_idces[::-1]
+    test_df = df.loc[selected_idces].copy()
+    return test_df
