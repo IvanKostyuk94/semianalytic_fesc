@@ -4,7 +4,13 @@ import os
 import illustris_python as il
 import astropy.units as u
 from pyTNG.cosmology import TNGcosmo
-from utils import get_particle_dist, get_sim, get_redshift, get_snap
+from utils import (
+    get_particle_dist,
+    get_sim,
+    get_redshift,
+    get_snap,
+    dist_to_cm,
+)
 from sklearn.decomposition import PCA
 from scipy.stats import binned_statistic_2d
 
@@ -97,9 +103,9 @@ def create_particle_box(gas, particles, df, idx, z, stars=None):
     # for a proper resolution
     if sphere_particles["count"] < 5:
         if stars is not None:
-            return 0, 0
+            return 0, 0, 0
         else:
-            return 0
+            return 0, 0
     pca = PCA(3)
     pca.fit(sphere_particles["Coordinates"])
     particles["Coordinates"] = pca.transform(particles["Coordinates"])
@@ -110,7 +116,10 @@ def create_particle_box(gas, particles, df, idx, z, stars=None):
     gas["Coordinates"] = pca.transform(gas["Coordinates"])
     get_normed_coord(gas, df, idx, z, is_relative=True)
     box_gas = select_box_particles(gas)
-
+    # testing
+    sphere_gas = select_sphere_particles(gas, df, idx, z, is_relative=True)
+    print(sphere_gas["StarFormationRate"].sum())
+    # end testing
     if stars is not None:
         get_relative_coord(stars, df, idx)
         stars["Coordinates"] = pca.transform(stars["Coordinates"])
@@ -237,15 +246,16 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
 
 
 # Adds scale height, gas and star-masses
-def update_df_columns(df, sim_path, snap_num, z):
-    dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
+# Created a dict of maps of surface properties
+def update_df_columns(df, sim_path, snap_num, z, approx_grid_size=0.1):
     mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
-    df.loc[:, "r"] *= dist_to_cm
 
     scale_heights = []
     gas_masses = []
     star_masses = []
+    grid_cell_sizes = []
 
+    surface_maps = {}
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
@@ -254,8 +264,15 @@ def update_df_columns(df, sim_path, snap_num, z):
         box_gas, box_particles, box_stars = create_particle_box(
             gas, gas_wind, df, idx, z, stars
         )
+        print(box_gas["StarFormationRate"].sum())
+        print(df.loc[idx, "SFR_2r"])
+        print("=" * 80)
         if box_particles == 0:
             print(f"Dropping halo {idx}: too few particles")
+            df.drop(idx, inplace=True)
+            continue
+        if box_gas["StarFormationRate"].sum() == 0:
+            print(f"Dropping halo {idx}: no star formation")
             df.drop(idx, inplace=True)
             continue
         scale_height = get_scale_height(box_particles)
@@ -263,10 +280,21 @@ def update_df_columns(df, sim_path, snap_num, z):
         gas_masses.append(box_particles["Masses"].sum())
         star_masses.append(box_stars["Masses"].sum())
 
-    df["Column_height"] = np.array(scale_heights) * dist_to_cm
+        grid_cell_num, grid_cell_size = get_grid_cell_num(
+            2 * df.loc[idx, "r"], approx_grid_size, dist_to_cm(z)
+        )
+
+        maps = get_gridded_surface_data(
+            box_gas, box_particles, box_stars, grid_cell_num
+        )
+        grid_cell_sizes.append(grid_cell_size)
+        surface_maps[idx] = maps
+
+    df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
-    return
+    df["Grid_cell_size"] = np.array(grid_cell_sizes) * dist_to_cm(z)
+    return surface_maps
 
 
 def update_df_height(
