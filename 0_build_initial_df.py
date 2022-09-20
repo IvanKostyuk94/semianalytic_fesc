@@ -1,11 +1,25 @@
-from utils import get_sim, get_dataset_df, reduce_df, get_snap
+from utils import (
+    get_sim,
+    get_dataset_df,
+    reduce_df,
+    get_snap,
+    get_redshift,
+    dist_to_cm,
+)
 import os
+from astropy import units as u
 
 
-def build_new_df(snap_num, save_name="df", base="/ptmp/mpa/ivkos/semianalytic_fesc"):
+def build_new_df(
+    snap_num, save_name="df", base="/ptmp/mpa/ivkos/semianalytic_fesc"
+):
     sim, _ = get_sim()
     full_df = get_dataset_df(sim, snap_num=snap_num)
     save_df = reduce_df(full_df)
+
+    z = get_redshift(sim, snap_num)
+    save_df["r"] *= dist_to_cm(z)
+
     snap = get_snap(snap_num)
     snap_path = os.path.join(base, snap)
     if not os.path.exists(snap_path):
