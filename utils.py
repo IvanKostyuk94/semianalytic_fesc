@@ -12,6 +12,10 @@ import random
 h = TNGcosmo.h
 
 
+def dist_to_cm(z):
+    return (1 * u.kpc).to(u.cm).value / h / (1 + z)
+
+
 def get_sim():
     basepath = "/virgotng/universe/IllustrisTNG/"
     sim_name = "L35n2160TNG"
