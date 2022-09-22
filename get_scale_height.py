@@ -116,10 +116,6 @@ def create_particle_box(gas, particles, df, idx, z, stars=None):
     gas["Coordinates"] = pca.transform(gas["Coordinates"])
     get_normed_coord(gas, df, idx, z, is_relative=True)
     box_gas = select_box_particles(gas)
-    # testing
-    sphere_gas = select_sphere_particles(gas, df, idx, z, is_relative=True)
-    print(sphere_gas["StarFormationRate"].sum())
-    # end testing
     if stars is not None:
         get_relative_coord(stars, df, idx)
         stars["Coordinates"] = pca.transform(stars["Coordinates"])
@@ -191,7 +187,7 @@ def merge_gas_wind(gas, wind):
                 all_gas[key] = np.append(gas[key], wind[key], axis=0)
         all_gas["count"] = gas["count"] + wind["count"]
     elif wind["count"] == 0:
-        all_gas = gas
+        all_gas = gas.copy()
     return all_gas
 
 
@@ -264,9 +260,6 @@ def update_df_columns(df, sim_path, snap_num, z, approx_grid_size=0.1):
         box_gas, box_particles, box_stars = create_particle_box(
             gas, gas_wind, df, idx, z, stars
         )
-        print(box_gas["StarFormationRate"].sum())
-        print(df.loc[idx, "SFR_2r"])
-        print("=" * 80)
         if box_particles == 0:
             print(f"Dropping halo {idx}: too few particles")
             df.drop(idx, inplace=True)
