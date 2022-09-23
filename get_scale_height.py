@@ -11,6 +11,7 @@ from utils import (
     get_redshift,
     get_snap,
     dist_to_cm,
+    save_to_hdf,
 )
 from sklearn.decomposition import PCA
 from scipy.stats import binned_statistic_2d
@@ -308,22 +309,8 @@ def update_df_columns(
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
-    df["Grid_cell_size"] = np.array(grid_cell_sizes) * dist_to_cm(z)
+    df["Grid_cell_size"] = np.array(grid_cell_sizes)
     return surface_maps
-
-
-def save_to_hdf(hdf_file, idx, approx_grid_size, maps):
-    galaxy = str(idx)
-    group = hdf_file[str(approx_grid_size)]
-    if galaxy not in group:
-        galaxy_group = group.create_group(galaxy)
-    else:
-        galaxy_group = group[galaxy]
-
-    for map_name in maps:
-        if map_name not in galaxy_group:
-            _ = galaxy_group.create_dataset(map_name, data=maps[map_name])
-    return
 
 
 def update_df_height(

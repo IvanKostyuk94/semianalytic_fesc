@@ -126,3 +126,17 @@ def select_sample_df(df, column="M_star_2r", sample_size=100, log=True):
     selected_idces = selected_idces[::-1]
     test_df = df.loc[selected_idces].copy()
     return test_df
+
+
+def save_to_hdf(hdf_file, idx, approx_grid_size, maps):
+    galaxy = str(idx)
+    group = hdf_file[str(approx_grid_size)]
+    if galaxy not in group:
+        galaxy_group = group.create_group(galaxy)
+    else:
+        galaxy_group = group[galaxy]
+
+    for map_name in maps:
+        if map_name not in galaxy_group:
+            _ = galaxy_group.create_dataset(map_name, data=maps[map_name])
+    return
