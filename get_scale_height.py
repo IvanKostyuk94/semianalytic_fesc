@@ -40,7 +40,7 @@ def get_normed_coord(particles, df, index, z, is_relative=False):
 
 def map_to_new_dict(particles, relevant):
     rel_particles = {}
-    newcount_particles = (relevant == True).sum()
+    newcount_particles = (relevant).sum()
     for key, value in particles.items():
         try:
             rel_particles[key] = value[relevant]
@@ -144,8 +144,8 @@ def separate_wind_stars(starAndWindParts):
         idces_wind = starAndWindParts["GFM_StellarFormationTime"] < 0
         idces_stars = starAndWindParts["GFM_StellarFormationTime"] > 0
 
-        newcount_wind = (idces_wind == True).sum()
-        newcount_stars = (idces_stars == True).sum()
+        newcount_wind = (idces_wind).sum()
+        newcount_stars = (idces_stars).sum()
 
         wind = {}
         stars = {}
@@ -203,7 +203,7 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
     x_particles = box_particles["Coordinates"][:, 0]
     y_particles = box_particles["Coordinates"][:, 1]
     masses = box_particles["Masses"]
-    binned_masses, x_edges, y_edges, _ = binned_statistic_2d(
+    binned_masses, *_ = binned_statistic_2d(
         x_particles,
         y_particles,
         values=masses,
@@ -211,7 +211,7 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
         bins=grid_cell_num,
     )
     metallicities = box_particles["GFM_Metallicity"]
-    binned_metallicities, x_edges, y_edges, _ = binned_statistic_2d(
+    binned_metallicities, *_ = binned_statistic_2d(
         x_particles,
         y_particles,
         values=metallicities,
