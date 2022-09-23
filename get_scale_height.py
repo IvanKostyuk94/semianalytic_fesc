@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import h5py
 import illustris_python as il
 import astropy.units as u
 from pyTNG.cosmology import TNGcosmo
@@ -243,7 +244,15 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
 
 # Adds scale height, gas and star-masses
 # Created a dict of maps of surface properties
-def update_df_columns(df, sim_path, snap_num, z, approx_grid_size=0.1):
+def update_df_columns(
+    df,
+    sim_path,
+    snap_num,
+    z,
+    approx_grid_size=0.1,
+    to_hdf=False,
+    hdf5_file=None,
+):
     mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
 
     scale_heights = []
@@ -251,7 +260,13 @@ def update_df_columns(df, sim_path, snap_num, z, approx_grid_size=0.1):
     star_masses = []
     grid_cell_sizes = []
 
+    if to_hdf:
+        if str(approx_grid_size) not in hdf5_file:
+            print(f"Creating group for grid size {grid_size}")
+            _ = hdf5_file.create_group(str(approx_grid_size))
+
     surface_maps = {}
+    counter = 0
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
@@ -283,6 +298,13 @@ def update_df_columns(df, sim_path, snap_num, z, approx_grid_size=0.1):
         grid_cell_sizes.append(grid_cell_size)
         surface_maps[idx] = maps
 
+        if to_hdf:
+            save_to_hdf(hdf5_file, idx, approx_grid_size, maps)
+
+        counter += 1
+        if counter % 100 == 0:
+            print(f"{counter/len(df)*100:.2f}% done")
+
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
@@ -290,23 +312,59 @@ def update_df_columns(df, sim_path, snap_num, z, approx_grid_size=0.1):
     return surface_maps
 
 
+def save_to_hdf(hdf_file, idx, approx_grid_size, maps):
+    galaxy = str(idx)
+    group = hdf_file[str(approx_grid_size)]
+    if galaxy not in group:
+        galaxy_group = group.create_group(galaxy)
+    else:
+        galaxy_group = hdf_file[galaxy]
+
+    for map_name in maps:
+        if map_name not in galaxy_group:
+            _ = galaxy_group.create_dataset(map_name, data=maps[map_name])
+    return
+
+
 def update_df_height(
     snap_num,
-    df_name="0_df.pickle",
+    df_name="test_df.pickle",
     base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
-    output_name="1_df.pickle",
+    output_name="test_df_updated.pickle",
+    approx_grid_size=0.1,
+    to_hdf=True,
+    hdf_name="maps.hdf5",
 ):
     snap = get_snap(snap_num)
     sim, sim_path = get_sim()
     z = get_redshift(sim, snap_num)
     origin_path = os.path.join(base_path, snap, df_name)
     destination_path = os.path.join(base_path, snap, output_name)
+    if to_hdf:
+        hdf_path = os.path.join(base_path, snap, hdf_name)
+        if not os.path.exists(hdf_path):
+            hdf_file = h5py.File(hdf_path, "w")
+            hdf_file.close()
+        hdf_file = h5py.File(hdf_path, "a")
+
     df = pd.read_pickle(origin_path)
-    update_df_columns(df, sim_path, snap_num, z)
+    update_df_columns(
+        df,
+        sim_path,
+        snap_num,
+        z,
+        approx_grid_size,
+        to_hdf=to_hdf,
+        hdf5_file=hdf_file,
+    )
+    if to_hdf:
+        hdf_file.close()
     df.to_pickle(destination_path)
     return
 
 
 if __name__ == "__main__":
     snap_num = 13
-    update_df_height(snap_num)
+    grids_to_test = [0.005, 0.01, 0.03, 0.05, 0.07, 0.09, 0.1, 0.2, 0.3]
+    for grid_size in grids_to_test:
+        update_df_height(snap_num, approx_grid_size=grid_size)
