@@ -306,16 +306,18 @@ def update_df_columns(
         if counter % 100 == 0:
             print(f"{counter/len(df)*100:.2f}% done")
 
+    # This is temporarily for testing different grid_sizes
+    grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
-    df["Grid_cell_size"] = np.array(grid_cell_sizes)
+    df[grid_column_name] = np.array(grid_cell_sizes)
     return surface_maps
 
 
 def update_df_height(
     snap_num,
-    df_name="test_df.pickle",
+    df_name="test_df_updated.pickle",
     base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
     output_name="test_df_updated.pickle",
     approx_grid_size=0.1,
