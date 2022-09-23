@@ -192,10 +192,10 @@ def merge_gas_wind(gas, wind):
     return all_gas
 
 
-def get_grid_cell_num(radius, approx_grid_size, dist_to_cm):
-    approx_grid_size_cm = approx_grid_size * dist_to_cm
+def get_grid_cell_num(radius, approx_grid_size, z):
+    approx_grid_size_cm = approx_grid_size * dist_to_cm(z)
     grid_cell_num = int(2 * radius / approx_grid_size_cm)
-    grid_cell_size = 2 * radius * dist_to_cm / grid_cell_num
+    grid_cell_size = 2 * radius / grid_cell_num
     return grid_cell_num, grid_cell_size
 
 
@@ -289,7 +289,7 @@ def update_df_columns(
         star_masses.append(box_stars["Masses"].sum())
 
         grid_cell_num, grid_cell_size = get_grid_cell_num(
-            2 * df.loc[idx, "r"], approx_grid_size, dist_to_cm(z)
+            2 * df.loc[idx, "r"], approx_grid_size, z
         )
 
         maps = get_gridded_surface_data(
@@ -318,7 +318,7 @@ def save_to_hdf(hdf_file, idx, approx_grid_size, maps):
     if galaxy not in group:
         galaxy_group = group.create_group(galaxy)
     else:
-        galaxy_group = hdf_file[galaxy]
+        galaxy_group = group[galaxy]
 
     for map_name in maps:
         if map_name not in galaxy_group:
