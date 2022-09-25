@@ -237,7 +237,7 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
     mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
     maps = {}
     maps["M_gas"] = binned_masses * mass_to_g
-    maps["M_stars"] = binned_stars * mass_to_g
+    maps["M_star"] = binned_stars * mass_to_g
     maps["SFR"] = binned_sfr
     maps["Metallicity"] = binned_metallicities
     return maps
