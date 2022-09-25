@@ -4,19 +4,29 @@ from astropy import constants
 from astropy import units as u
 from astropy.constants import m_p
 import os
+import h5py
+from utils import save_to_hdf, get_snap
 
 # Solar metallicit
 Z_solar = 0.0134
 
 
-def get_column_height_dens(maps, grid_cell_size):
+def get_surface_dens(maps, grid_cell_size):
     kg_to_g = 1000
     m_p_g = m_p.value * kg_to_g
 
     grid_cell_area = grid_cell_size**2
 
+    if "Sigma_SFR" in maps.keys():
+        del maps["Sigma_SFR"]
     maps["Sigma_SFR"] = maps["SFR"] / grid_cell_area
+
+    if "Sigma_gas" in maps.keys():
+        del maps["Sigma_gas"]
     maps["Sigma_gas"] = maps["M_gas"] / grid_cell_area
+
+    if "Sigma_star" in maps.keys():
+        del maps["Sigma_star"]
     maps["Sigma_star"] = maps["M_star"] / grid_cell_area
     return
 
@@ -29,11 +39,17 @@ def get_lum_from_sfr(maps):
     mean_phot_e_ion_spec = 20.4
     bolometric_correction = 5
     cm_to_kpc = (1 * u.cm).to(u.kpc).value
+
+    if "Ion_flux" in maps.keys():
+        del maps["Ion_flux"]
     maps["Ion_flux"] = (
-        maps["Sigma_SFR"] * sigma_sfr_to_ion_flux / cm_to_kpc**2
+        np.array(maps["Sigma_SFR"]) * sigma_sfr_to_ion_flux / cm_to_kpc**2
     )
+
+    if "Bol_flux" in maps.keys():
+        del maps["Bol_flux"]
     maps["Bol_flux"] = (
-        maps["Sigma_SFR"] * bolometric_correction / cm_to_kpc**2
+        np.array(maps["Sigma_SFR"]) * bolometric_correction / cm_to_kpc**2
     )
     return
 
@@ -41,152 +57,218 @@ def get_lum_from_sfr(maps):
 # This assumes a constant ratio between
 # metallicity and dust
 def normalized_dust(maps):
-    maps["Dust_norm"] = maps["Metallicity"] / Z_solar
+    if "Dust_norm" in maps.keys():
+        del maps["Dust_norm"]
+    maps["Dust_norm"] = np.array(maps["Metallicity"]) / Z_solar
     return
 
 
 def gas_fraction(maps):
-    maps["f_g"] = maps["M_gas"] / (maps["M_gas"] + maps["M_star"])
+    if "f_g" in maps.keys():
+        del maps["f_g"]
+    maps["f_g"] = np.array(maps["M_gas"]) / (
+        np.array(maps["M_gas"]) + np.array(maps["M_star"])
+    )
     return
 
 
 def N_crit(maps):
     one_over_dust_cross_converstion = 4.3e20
-    maps["N_d"] = one_over_dust_cross_converstion / maps["Dust_norm"]
+
+    if "N_d" in maps.keys():
+        del maps["N_d"]
+    maps["N_d"] = one_over_dust_cross_converstion / np.array(maps["Dust_norm"])
     return
 
 
 def dust_crosssection_per_H(maps):
     conversion_factor = 4.8e-22
-    maps["sigma_d_H"] = conversion_factor * maps["Dust_norm"]
+
+    if "sigma_d_H" in maps.keys():
+        del maps["sigma_d_H"]
+    maps["sigma_d_H"] = conversion_factor * np.array(maps["Dust_norm"])
     return
 
 
 def gravitational_pressure(maps):
     m3_per_kg_to_cm3_per_g = 1e3
+
+    if "p_g" in maps.keys():
+        del maps["p_g"]
     maps["p_g"] = (
         m3_per_kg_to_cm3_per_g
         * np.pi
         / 2
         * constants.G.value
-        * maps["Sigma_gas"] ** 2
-        / maps["f_g"]
+        * np.array(maps["Sigma_gas"]) ** 2
+        / np.array(maps["f_g"])
     )
     return
 
 
-def particle_dens(maps, grid_cell_size, scale_height):
-    grid_cell_volume = grid_cell_size**2 * scale_height
+def column_dens(maps, grid_cell_size):
+    grid_cell_area = grid_cell_size**2
     mean_molecular_mass = 1
     kg_to_g = 1e3
-    maps["n_gas_r"] = (
-        maps["M_gas_r"]
-        / grid_cell_volume
+
+    if "Column_dens" in maps.keys():
+        del maps["Column_dens"]
+    maps["Column_dens"] = (
+        np.array(maps["M_gas"])
+        / 2
+        / grid_cell_area
         / (constants.m_p.value * kg_to_g)
         / mean_molecular_mass
     )
+    grid_cell_size
+
+
+def particle_dens(maps, scale_height):
+    if "n_gas" in maps.keys():
+        del maps["n_gas"]
+    maps["n_gas"] = np.array(maps["Column_dens"]) / scale_height
     return
 
 
 def photon_to_gas(maps):
     m_to_cm = 100
-    maps["U"] = maps["Ion_flux"] / maps["n_gas"] / constants.c.value / m_to_cm
+
+    if "U" in maps.keys():
+        del maps["U"]
+    maps["U"] = (
+        np.array(maps["Ion_flux"])
+        / np.array(maps["n_gas"])
+        / constants.c.value
+        / m_to_cm
+    )
     return
 
 
 def column_dens_stroemgren(maps):
     case_B_param = 2.6e-13
     meter_to_cm = 100
+
+    if "Column_dens_stroemgren" in maps.keys():
+        del maps["Column_dens_stroemgren"]
     maps["Column_dens_stroemgren"] = (
-        maps["U"] * constants.c.value * meter_to_cm / case_B_param
+        np.array(maps["U"]) * constants.c.value * meter_to_cm / case_B_param
     )
     return
 
 
 def U1(maps):
-    maps["U1"] = maps["f_g"] ** 3 * maps["U"]
+    if "U1" in maps.keys():
+        del maps["U1"]
+    maps["U1"] = np.array(maps["f_g"]) ** 3 * np.array(maps["U"])
     return
 
 
 def tau_dust(maps):
-    maps["tau_d"] = maps["sigma_d_H"] * maps["Column_dens"]
+    if "tau_d" in maps.keys():
+        del maps["tau_d"]
+    maps["tau_d"] = np.array(maps["sigma_d_H"]) * np.array(maps["Column_dens"])
     return
 
 
 def radiation_pressure(maps):
     meter_to_cm = 100
+
+    if "p_r" in maps.keys():
+        del maps["p_r"]
     maps["p_r"] = (
-        (1 - np.exp(-maps["tau_d"]))
-        * maps["Bol_flux"]
+        (1 - np.exp(-np.array(maps["tau_d"])))
+        * np.array(maps["Bol_flux"])
         / (constants.c.value * meter_to_cm)
     )
     return
 
 
-def outflow_vel(maps):
+def outflow_vel(maps, scale_height):
     return (
         2
-        * maps["Column_height"]
-        * (maps["p_r"] - maps["p_g"])
-        / (maps["Sigma_gas"])
+        * scale_height
+        * (np.array(maps["p_r"]) - np.array(maps["p_g"]))
+        / (np.array(maps["Sigma_gas"]))
     ) ** 0.5
 
 
-def add_outflow_vel(maps):
-    maps["v_inf"] = np.where(maps["p_r"] > maps["p_g"], outflow_vel(maps), 0)
+def add_outflow_vel(maps, scale_height):
+    if "v_inf" in maps.keys():
+        del maps["v_inf"]
+    maps["v_inf"] = np.where(
+        np.array(maps["p_r"]) > np.array(maps["p_g"]),
+        outflow_vel(maps, scale_height),
+        0,
+    )
     return
 
 
 def column_dens_ratio(maps):
-    maps["N_ratio"] = maps["Column_dens"] / maps["N_d"]
+    if "N_ratio" in maps.keys():
+        del maps["N_ratio"]
+    maps["N_ratio"] = np.array(maps["Column_dens"]) / np.array(maps["N_d"])
     return
 
 
 def critical_gas_fraction(maps):
     return 6 * (
-        maps["Dust_norm"]
-        * maps["U1"]
-        * ((1 - maps["N_ratio"]) / maps["N_ratio"])
+        np.array(maps["Dust_norm"])
+        * np.array(maps["U1"])
+        * ((1 - np.array(maps["N_ratio"])) / np.array(maps["N_ratio"]))
     ) ** (1 / 3)
 
 
 def add_critical_gas_fraction(maps):
+    if "f_g_crit" in maps.keys():
+        del maps["f_g_crit"]
     maps["f_g_crit"] = np.where(
-        maps["N_ratio"] < 1, critical_gas_fraction(maps), 0
+        np.array(maps["N_ratio"]) < 1, critical_gas_fraction(maps), 0
     )
     return
 
 
-def evac_gas_frac(maps):
+def evac_gas_frac(maps, scale_height):
     sec_per_Myr = (1 * u.Myr).to(u.s).value
     t_OB = 2 * sec_per_Myr
-    maps["w"] = 0.5 * maps["v_inf"] * t_OB / maps["Column_height"]
+    w_array = 0.5 * np.array(maps["v_inf"]) * t_OB / scale_height
 
     # Correction in case of full evaculation
-    maps["w"] = np.where(maps["w"] > 1, 1, maps["w"])
+    if "w" in maps.keys():
+        del maps["w"]
+    maps["w"] = np.where(np.array(w_array) > 1, 1, np.array(w_array))
     return
 
 
 def reduced_column_den(maps):
-    maps["N_red"] = (1 - maps["w"]) * maps["Column_dens"]
+    if "N_red" in maps.keys():
+        del maps["N_red"]
+    maps["N_red"] = (1 - np.array(maps["w"])) * np.array(maps["Column_dens"])
     return
 
 
 def escape_fraction(maps):
     return np.exp(
-        -maps["N_red"] * (1 / maps["Column_dens_stroemgren"] + 1 / maps["N_d"])
+        -np.array(maps["N_red"])
+        * (
+            1 / np.array(maps["Column_dens_stroemgren"])
+            + 1 / np.array(maps["N_d"])
+        )
     )
 
 
 def f_esc(maps):
+    if "f_esc" in maps.keys():
+        del maps["f_esc"]
     maps["f_esc"] = np.where(
-        maps["f_g"] < maps["f_g_crit"], escape_fraction(maps), 0
+        np.array(maps["f_g"]) < np.array(maps["f_g_crit"]),
+        escape_fraction(maps),
+        0,
     )
     return
 
 
-def update_to_fesc(maps):
-    get_column_height_dens(maps)
+def update_to_fesc(maps, grid_cell_size, scale_height):
+    get_surface_dens(maps, grid_cell_size)
     get_lum_from_sfr(maps)
     normalized_dust(maps)
     gas_fraction(maps)
@@ -194,31 +276,65 @@ def update_to_fesc(maps):
     normalized_dust(maps)
     dust_crosssection_per_H(maps)
     gravitational_pressure(maps)
-    particle_dens(maps)
+    column_dens(maps, grid_cell_size)
+    particle_dens(maps, scale_height)
     photon_to_gas(maps)
     column_dens_stroemgren(maps)
     U1(maps)
     tau_dust(maps)
     radiation_pressure(maps)
-    add_outflow_vel(maps)
+    add_outflow_vel(maps, scale_height)
     column_dens_ratio(maps)
     add_critical_gas_fraction(maps)
-    evac_gas_frac(maps)
+    evac_gas_frac(maps, scale_height)
     reduced_column_den(maps)
     f_esc(maps)
     return
 
 
+def update_full_df(
+    snap_num,
+    approx_grid_size=0.1,
+    hdf_filename="maps.hdf5",
+    df_name="1_df.pickle",
+    output_name="df_full.pickle",
+    base="/ptmp/mpa/ivkos/semianalytic_fesc",
+):
+    snap = get_snap(snap_num)
+    hdf_path = os.path.join(base, snap, hdf_filename)
+    origin_path = os.path.join(base, snap, df_name)
+    destination_path = os.path.join(base, snap, output_name)
+
+    hdf_file = h5py.File(hdf_path, "a")
+    group = hdf_file[str(approx_grid_size)]
+    df = pd.read_pickle(origin_path)
+
+    for idx in df.index:
+        galaxy_name = str(idx)
+        galaxy_group = group[galaxy_name]
+        # For testing only
+        grid_size_column = "Grid_cell_size_" + str(grid_size)
+        grid_cell_size = df.loc[idx, grid_size_column]
+        scale_height = df.loc[idx, "Column_height"]
+        update_to_fesc(
+            maps=galaxy_group,
+            grid_cell_size=grid_cell_size,
+            scale_height=scale_height,
+        )
+    hdf_file.close()
+    return
+
+
 if __name__ == "__main__":
-    level_2_name = "2_df.pickle"
+    grid_sizes = [0.005, 0.01, 0.03, 0.05, 0.07, 0.09, 0.1, 0.2, 0.3]
     snap_num = 13
-    level_3_name = "full_df.pickle"
-    base = "/ptmp/mpa/ivkos/semianalytic_fesc/sn013"
-
-    df_path = os.path.join(base, level_2_name)
-    df = pd.read_pickle(df_path)
-
-    update_to_fesc(df)
-
-    save_path = os.path.join(base, level_3_name)
-    df.to_pickle(save_path)
+    for grid_size in grid_sizes:
+        update_full_df(
+            snap_num,
+            approx_grid_size=grid_size,
+            hdf_filename="maps.hdf5",
+            df_name="test_df_updated.pickle",
+            output_name="df_full.pickle",
+            base="/ptmp/mpa/ivkos/semianalytic_fesc",
+        )
+        print(f"Done with {grid_size}")
