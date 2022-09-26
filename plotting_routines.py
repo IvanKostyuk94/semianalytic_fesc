@@ -37,7 +37,9 @@ def plot_histogram(
 
     ax = plt.axes()
     ax.tick_params(length=x_tick_major_size, width=x_tick_major_width)
-    ax.tick_params(length=x_tick_minor_size, width=x_tick_minor_width, which="minor")
+    ax.tick_params(
+        length=x_tick_minor_size, width=x_tick_minor_width, which="minor"
+    )
     for i, prop in enumerate(props):
         if log:
             input_val = np.log10(df[prop])
@@ -64,7 +66,9 @@ def plot_histogram(
     return
 
 
-def plot_fesc_dependence(df, prop, labels=None, log=False, modes=None, plt_labels=None):
+def plot_fesc_dependence(
+    df, prop, labels=None, log=False, modes=None, plt_labels=None
+):
     scale = 0.5
     labelsize = 55 * scale
     x_tick_major_size = 16 * scale
@@ -85,7 +89,9 @@ def plot_fesc_dependence(df, prop, labels=None, log=False, modes=None, plt_label
 
     ax = plt.axes()
     ax.tick_params(length=x_tick_major_size, width=x_tick_major_width)
-    ax.tick_params(length=x_tick_minor_size, width=x_tick_minor_width, which="minor")
+    ax.tick_params(
+        length=x_tick_minor_size, width=x_tick_minor_width, which="minor"
+    )
 
     if modes == None:
         modes = ["r", "2r", "sf_r", "sf_2r"]
@@ -98,7 +104,11 @@ def plot_fesc_dependence(df, prop, labels=None, log=False, modes=None, plt_label
 
     for mode, label in zip(modes, plt_labels):
         ax.scatter(
-            input_val, df["f_esc_" + mode], s=scattersize, label=label, alpha=0.5
+            input_val,
+            df["f_esc_" + mode],
+            s=scattersize,
+            label=label,
+            alpha=0.5,
         )
 
     if labels != None:
@@ -141,7 +151,9 @@ def plot_prop_dependence(
 
     ax = plt.axes()
     ax.tick_params(length=x_tick_major_size, width=x_tick_major_width)
-    ax.tick_params(length=x_tick_minor_size, width=x_tick_minor_width, which="minor")
+    ax.tick_params(
+        length=x_tick_minor_size, width=x_tick_minor_width, which="minor"
+    )
 
     df = df.dropna(subset=[prop_x, prop_y])
 
@@ -196,7 +208,9 @@ def get_scatter(
 ):
 
     x_values = df.loc[:, halo_prop]
-    edges = np.logspace(np.log10(x_values.min()), np.log10(x_values.max()), bins)
+    edges = np.logspace(
+        np.log10(x_values.min()), np.log10(x_values.max()), bins
+    )
 
     means = []
     quantile16 = []
@@ -212,7 +226,8 @@ def get_scatter(
             skip_next -= 1
             continue
         sub_fesc = df[
-            (edges[i] * (1 - 1e-10) < df[halo_prop]) & (df[halo_prop] < edges[i + 1])
+            (edges[i] * (1 - 1e-10) < df[halo_prop])
+            & (df[halo_prop] < edges[i + 1])
         ][y_axis]
         center = np.exp((np.log(edges[i + 1]) + np.log(edges[i])) / 2.0)
 
@@ -224,7 +239,9 @@ def get_scatter(
                 (edges[i] * (1 - 1e-10) < df[halo_prop])
                 & (df[halo_prop] < edges[i + add_bins])
             ][y_axis]
-            center = np.exp((np.log(edges[i + add_bins]) + np.log(edges[i])) / 2.0)
+            center = np.exp(
+                (np.log(edges[i + add_bins]) + np.log(edges[i])) / 2.0
+            )
             add_bins += 1
             skip_next += 1
 
@@ -243,7 +260,15 @@ def get_scatter(
     centers = np.array(centers)
     variance = np.array(variance)
     frac_small_arr = np.array(frac_small_arr)
-    return centers, means, quantile16, quantile84, error, variance, frac_small_arr
+    return (
+        centers,
+        means,
+        quantile16,
+        quantile84,
+        error,
+        variance,
+        frac_small_arr,
+    )
 
 
 def plot_scatter(
@@ -369,7 +394,9 @@ def plot_scatter(
         # ax1.set_ylim(threshold, upper_y_threshold)
     ax1.set_ylabel(y_label, size=size_label)
     ax1.tick_params(length=x_tick_major_size, width=x_tick_major_width)
-    ax1.tick_params(length=x_tick_minor_size, width=x_tick_minor_width, which="minor")
+    ax1.tick_params(
+        length=x_tick_minor_size, width=x_tick_minor_width, which="minor"
+    )
     ax1.legend(fontsize=legend_fontsize)  # , loc=legend_loc, ncol=2)
     ax1.set_rasterization_zorder(-15)
     ax1.set_xlim(5)
@@ -381,7 +408,10 @@ def plot_scatter(
         else:
             ax2 = plt.subplot2grid((3, 1), (2, 0), sharex=ax1)
         ax2.plot(
-            np.log10(centers_sfr), variance_sfr, linewidth=linewidth, color="black"
+            np.log10(centers_sfr),
+            variance_sfr,
+            linewidth=linewidth,
+            color="black",
         )
         ax2.plot(
             np.log10(centers_bpass),
@@ -552,7 +582,12 @@ def plot_hist_color(
         statistic=filter_function,
         bins=[bins[0], bins[1]],
     )  # , range=[[6,8],[0,1]])
-    hist_cont, xedges_cont, yedges_cont, binnumber_cont = stats.binned_statistic_2d(
+    (
+        hist_cont,
+        xedges_cont,
+        yedges_cont,
+        binnumber_cont,
+    ) = stats.binned_statistic_2d(
         np.log10(x_values),
         f_esc,
         values=color_data,
@@ -586,7 +621,9 @@ def plot_hist_color(
     ax.set_rasterization_zorder(-15)
 
     ax.tick_params(length=length_major_ticks, width=width_major_ticks)
-    ax.tick_params(length=length_minor_ticks, width=width_minor_ticks, which="minor")
+    ax.tick_params(
+        length=length_minor_ticks, width=width_minor_ticks, which="minor"
+    )
 
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.1)
@@ -607,4 +644,142 @@ def plot_hist_color(
     plt.tight_layout(rect=(0, 0, 1, 0.7))
 
     plt.show()
+    return
+
+
+def plot_parameters(params, multiple=False):
+    parameters = {}
+    parameters["x_labelsize"] = 50
+    parameters["y_labelsize"] = 50
+
+    parameters["length_major_ticks"] = 16
+    parameters["length_minor_ticks"] = 8
+    parameters["width_minor_ticks"] = 3
+    parameters["width_major_ticks"] = 4
+    parameters["labelsize_ticks"] = 35
+
+    parameters["colorbar_labelsize"] = 50
+    parameters["colorbar_ticklabelsize"] = 35
+
+    parameters["axes_width"] = 3
+
+    parameters["figure_width"] = 40
+    parameters["figure_height"] = 35
+
+    parameters["height_per_image"] = 6
+    parameters["width_per_image"] = 6
+
+    parameters["x_label"] = r"$\log(n) [\mathrm{cm}^{-3}]$"
+    parameters["y_label"] = r"$\log(T) [\mathrm{K}]$"
+    parameters["bar_label"] = r"$\log(\frac{M}{M_\mathrm{max}})$"
+
+    parameters["nx"] = 45
+    parameters["ny"] = 30
+
+    parameters["v_min"] = -4
+    parameters["v_max"] = 0
+
+    parameters["x_lim_min"] = -4.8
+    parameters["x_lim_max"] = 0
+
+    parameters["y_lim_min"] = 2.8
+    parameters["y_lim_max"] = 6.4
+
+    if params != None:
+        for element in params:
+            parameters[element] = params[element]
+    return parameters
+
+
+def get_col_norm(parameters):
+    # v_min = np.log10(hist[hist > 0].min())
+    # v_max = np.log10(hist.max())
+    v_min = parameters["v_min"]
+    v_max = parameters["v_max"]
+    v_center = (v_max + v_min) / 2
+
+    col_norm = colors.DivergingNorm(vmin=v_min, vcenter=v_center, vmax=v_max)
+    return col_norm
+
+
+def set_ax_params(ax, parameters):
+    ax.set_xlabel(parameters["x_label"], size=parameters["x_labelsize"])
+    ax.set_ylabel(parameters["y_label"], size=parameters["y_labelsize"])
+
+    ax.set_xlim(parameters["x_lim_min"], parameters["x_lim_max"])
+    ax.set_ylim(parameters["y_lim_min"], parameters["y_lim_max"])
+
+    ax.tick_params(
+        length=parameters["length_major_ticks"],
+        width=parameters["width_major_ticks"],
+    )
+    ax.tick_params(
+        length=parameters["length_minor_ticks"],
+        width=parameters["width_minor_ticks"],
+        which="minor",
+    )
+    ax.tick_params(
+        axis="both", which="both", labelsize=parameters["labelsize_ticks"]
+    )
+
+    # change all spines
+    for axis in ["top", "bottom", "left", "right"]:
+        ax.spines[axis].set_linewidth(parameters["axes_width"])
+    return
+
+
+def create_color_bar(f, ax, parameters, subfig):
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cbar = f.colorbar(subfig, cax=cax)
+    cbar.set_label(
+        parameters["bar_label"], size=parameters["colorbar_labelsize"]
+    )
+    cbar.ax.tick_params(labelsize=parameters["colorbar_ticklabelsize"])
+    return
+
+
+def set_plt_params(parameters):
+    plt.rc("axes", linewidth=parameters["axes_width"])
+    plt.rc("xtick", labelsize=parameters["labelsize_x_ticks"])
+    plt.rc("ytick", labelsize=parameters["labelsize_y_ticks"])
+
+    plt.rcParams["figure.figsize"] = (
+        parameters["figure_width"],
+        parameters["figure_height"],
+    )
+    plt.tight_layout(rect=(0, 0, 1, 0.7))
+    return
+
+
+def plot_multiple_histograms(maps, params=None):
+
+    parameters = plot_parameters(params, multiple=True)
+    set_plt_params(parameters)
+
+    col_norm = get_col_norm(parameters)
+
+    image_columns = 2
+    image_rows = np.ceil(len(maps.keys()) / 2)
+    figsize = (
+        params["width_per_image"] * image_columns,
+        params["height_per_image"] * image_rows,
+    )
+    f, axs = plt.subplots(
+        image_columns,
+        image_rows,
+        gridspec_kw={"hspace": 0, "wspace": 0},
+        figsize=figsize,
+    )
+
+    for i, map in enumerate(maps.keys()):
+        column = i % 2
+        row = i // 2
+        subfig = axs[column, row].pcolormesh(
+            maps[map],
+        )
+        set_ax_params(axs[column, row], parameters)
+        create_color_bar(
+            axs[column, row], parameters, subfig, f, multiple=True
+        )
     return
