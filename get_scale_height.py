@@ -196,6 +196,9 @@ def merge_gas_wind(gas, wind):
 def get_grid_cell_num(radius, approx_grid_size, z):
     approx_grid_size_cm = approx_grid_size * dist_to_cm(z)
     grid_cell_num = int(2 * radius / approx_grid_size_cm)
+    # Set the cell number to one if the radius is very small
+    if grid_cell_num == 0:
+        grid_cell_num = 1
     grid_cell_size = 2 * radius / grid_cell_num
     return grid_cell_num, grid_cell_size
 
@@ -354,6 +357,6 @@ def update_df_height(
 
 if __name__ == "__main__":
     snap_num = 13
-    grids_to_test = [0.005, 0.01, 0.03, 0.05, 0.07, 0.09, 0.1, 0.2, 0.3]
+    grids_to_test = [3, 5, 7, 10]
     for grid_size in grids_to_test:
         update_df_height(snap_num, approx_grid_size=grid_size)
