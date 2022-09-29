@@ -649,8 +649,8 @@ def plot_hist_color(
 
 def plot_parameters(params, multiple=False):
     parameters = {}
-    parameters["x_labelsize"] = 50
-    parameters["y_labelsize"] = 50
+    parameters["x_labelsize"] = 30
+    parameters["y_labelsize"] = 30
 
     parameters["length_major_ticks"] = 16
     parameters["length_minor_ticks"] = 8
@@ -658,8 +658,8 @@ def plot_parameters(params, multiple=False):
     parameters["width_major_ticks"] = 4
     parameters["labelsize_ticks"] = 35
 
-    parameters["colorbar_labelsize"] = 50
-    parameters["colorbar_ticklabelsize"] = 35
+    parameters["colorbar_labelsize"] = 30
+    parameters["colorbar_ticklabelsize"] = 20
 
     parameters["axes_width"] = 3
 
@@ -669,9 +669,9 @@ def plot_parameters(params, multiple=False):
     parameters["height_per_image"] = 6
     parameters["width_per_image"] = 6
 
-    parameters["x_label"] = r"$\log(n) [\mathrm{cm}^{-3}]$"
-    parameters["y_label"] = r"$\log(T) [\mathrm{K}]$"
-    parameters["bar_label"] = r"$\log(\frac{M}{M_\mathrm{max}})$"
+    # parameters["x_label"] = r"$\log(n) [\mathrm{cm}^{-3}]$"
+    # parameters["y_label"] = r"$\log(T) [\mathrm{K}]$"
+    # parameters["bar_label"] = r"$\log(\frac{M}{M_\mathrm{max}})$"
 
     parameters["nx"] = 45
     parameters["ny"] = 30
@@ -698,16 +698,16 @@ def get_col_norm(parameters):
     v_max = parameters["v_max"]
     v_center = (v_max + v_min) / 2
 
-    col_norm = colors.DivergingNorm(vmin=v_min, vcenter=v_center, vmax=v_max)
+    col_norm = colors.TwoSlopeNorm(vmin=v_min, vcenter=v_center, vmax=v_max)
     return col_norm
 
 
 def set_ax_params(ax, parameters):
-    ax.set_xlabel(parameters["x_label"], size=parameters["x_labelsize"])
-    ax.set_ylabel(parameters["y_label"], size=parameters["y_labelsize"])
+    # ax.set_xlabel(parameters["x_label"], size=parameters["x_labelsize"])
+    # ax.set_ylabel(parameters["y_label"], size=parameters["y_labelsize"])
 
-    ax.set_xlim(parameters["x_lim_min"], parameters["x_lim_max"])
-    ax.set_ylim(parameters["y_lim_min"], parameters["y_lim_max"])
+    # ax.set_xlim(parameters["x_lim_min"], parameters["x_lim_max"])
+    # ax.set_ylim(parameters["y_lim_min"], parameters["y_lim_max"])
 
     ax.tick_params(
         length=parameters["length_major_ticks"],
@@ -730,56 +730,44 @@ def set_ax_params(ax, parameters):
 
 def create_color_bar(f, ax, parameters, subfig):
     divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.05)
+    cax = divider.append_axes("right", size="5%", pad=0.15)
     cbar = f.colorbar(subfig, cax=cax)
-    cbar.set_label(
-        parameters["bar_label"], size=parameters["colorbar_labelsize"]
-    )
+    # cbar.set_label(
+    #     parameters["bar_label"], size=parameters["colorbar_labelsize"]
+    # )
     cbar.ax.tick_params(labelsize=parameters["colorbar_ticklabelsize"])
-    return
-
-
-def set_plt_params(parameters):
-    plt.rc("axes", linewidth=parameters["axes_width"])
-    plt.rc("xtick", labelsize=parameters["labelsize_x_ticks"])
-    plt.rc("ytick", labelsize=parameters["labelsize_y_ticks"])
-
-    plt.rcParams["figure.figsize"] = (
-        parameters["figure_width"],
-        parameters["figure_height"],
-    )
-    plt.tight_layout(rect=(0, 0, 1, 0.7))
     return
 
 
 def plot_multiple_histograms(maps, params=None):
 
     parameters = plot_parameters(params, multiple=True)
-    set_plt_params(parameters)
 
     col_norm = get_col_norm(parameters)
 
     image_columns = 2
-    image_rows = np.ceil(len(maps.keys()) / 2)
+    image_rows = int(np.ceil(len(maps.keys()) / 2))
     figsize = (
-        params["width_per_image"] * image_columns,
-        params["height_per_image"] * image_rows,
+        parameters["width_per_image"] * image_columns,
+        parameters["height_per_image"] * image_rows,
     )
-    f, axs = plt.subplots(
-        image_columns,
-        image_rows,
-        gridspec_kw={"hspace": 0, "wspace": 0},
+    fig, axs = plt.subplots(
+        ncols=image_columns,
+        nrows=image_rows,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
         figsize=figsize,
     )
 
-    for i, map in enumerate(maps.keys()):
-        column = i % 2
-        row = i // 2
-        subfig = axs[column, row].pcolormesh(
-            maps[map],
+    for i, prop in enumerate(maps.keys()):
+        column = int(i % 2)
+        row = int(i // 2)
+        subfig = axs[row, column].pcolormesh(
+            maps[prop],
         )
-        set_ax_params(axs[column, row], parameters)
-        create_color_bar(
-            axs[column, row], parameters, subfig, f, multiple=True
-        )
+        set_ax_params(axs[row, column], parameters)
+        axs[row, column].set_title(prop, fontsize=parameters["y_labelsize"])
+        create_color_bar(fig, axs[row, column], parameters, subfig)
+        axs[row, column].get_xaxis().set_visible(False)
+        axs[row, column].get_yaxis().set_visible(False)
+
     return
