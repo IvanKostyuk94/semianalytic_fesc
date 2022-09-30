@@ -3,6 +3,7 @@ import pandas as pd
 import h5py
 import os
 from utils import get_snap
+import astropy.units as u
 
 
 def get_average_N_d(maps):
@@ -11,10 +12,9 @@ def get_average_N_d(maps):
 
 def get_df_quantity(prop, hdf_file, df, index, scale):
     maps = hdf_file[scale][str(index)]
+    flux_quantities = ["Ion_flux", "Bol_flux"]
     summed_quantities = [
-        "Bol_flux",
         "Dust_norm",
-        "Ion_flux",
         "M_gas",
         "M_star",
         "SFR",
@@ -34,6 +34,11 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     ]
     if prop in summed_quantities:
         quant = np.sum(maps[prop])
+    elif prop in flux_quantities:
+        cm_to_kpc = (1 * u.cm).to(u.kpc).value
+        grid_column = "Grid_cell_size_" + str(scale)
+        grid_size = df.loc[index, grid_column]
+        quant = np.sum(maps[prop]) * grid_size**2 * cm_to_kpc**2
     elif prop in average_quantities:
         quant = np.mean(maps[prop])
     elif prop == "Metallicity":
@@ -47,7 +52,10 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     else:
         return
     # The scale here is only for testing
-    column_name = prop + "_" + str(scale)
+    if prop in flux_quantities:
+        column_name = prop[:-4] + "em_" + str(scale)
+    else:
+        column_name = prop + "_" + str(scale)
     df.loc[index, column_name] = quant
     return
 
@@ -77,7 +85,7 @@ def update_map_df(
 
     hdf_file = h5py.File(hdf_path, "a")
     df = pd.read_pickle(origin_path)
-    add_map_quantities(df, hdf_file, grid_scale)
+    add_map_quantities(df, hdf_file, str(grid_scale))
 
     df.to_pickle(destination_path)
     hdf_file.close()
@@ -86,31 +94,50 @@ def update_map_df(
 
 if __name__ == "__main__":
     grid_sizes = [
-        "0.005",
-        "0.01",
-        "0.03",
-        "0.05",
-        "0.07",
-        "0.09",
-        "0.1",
-        "0.2",
-        "0.3",
-        "0.5",
-        "0.7",
-        "1.0",
-        "10",
-        "3",
-        "5",
-        "7",
+        0.3,
+        0.35,
+        0.4,
+        0.45,
+        0.5,
+        0.55,
+        0.6,
+        0.65,
+        0.7,
+        0.75,
+        0.8,
+        0.85,
+        0.9,
+        0.95,
+        1.0,
+        1.05,
+        1.1,
+        1.15,
+        1.2,
+        1.25,
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0,
     ]
     snap_num = 13
     for grid_size in grid_sizes:
         update_map_df(
             snap_num,
             grid_scale=grid_size,
-            hdf_filename="maps.hdf5",
-            df_name="test_df_updated.pickle",
-            output_name="test_df_updated.pickle",
+            hdf_filename="maps2.hdf5",
+            df_name="test_df2_updated.pickle",
+            output_name="test_df2_updated.pickle",
             base="/ptmp/mpa/ivkos/semianalytic_fesc",
         )
         print(f"Done with {grid_size}")
