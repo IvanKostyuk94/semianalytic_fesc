@@ -8,6 +8,7 @@ from matplotlib.colors import LogNorm
 from matplotlib.colors import Normalize
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy import stats
+from matplotlib import colormaps
 
 
 def plot_histogram(
@@ -45,7 +46,7 @@ def plot_histogram(
             input_val = np.log10(df[prop])
         else:
             input_val = df[prop]
-        if legend_labels == None:
+        if legend_labels is None:
             ax.hist(input_val, bins=100, density=True, alpha=alpha, range=xlim)
         else:
             ax.hist(
@@ -57,10 +58,10 @@ def plot_histogram(
                 range=xlim,
             )
 
-    if labels != None:
+    if labels is not None:
         ax.set_xlabel(labels["x"], size=labelsize)
         ax.set_ylabel(labels["y"], size=labelsize)
-    if legend_labels != None:
+    if legend_labels is not None:
         plt.legend(fontsize=legendsize)
     plt.show()
     return
@@ -763,20 +764,22 @@ def plot_multiple_histograms(maps, params=None):
         gridspec_kw={"hspace": 0.2, "wspace": 0.2},
         figsize=figsize,
     )
-
+    lin_props = ["f_esc", "f_g", "f_g_crit"]
     for i, prop in enumerate(maps.keys()):
         column = int(i % 2)
         row = int(i // 2)
-        subfig = axs[row, column].pcolormesh(
-            maps[prop],
-        )
+        if prop in lin_props:
+            quant = maps[prop]
+        else:
+            quant = np.log10(maps[prop])
+        subfig = axs[row, column].pcolormesh(quant, cmap=colormaps["inferno"])
         set_ax_params(axs[row, column], parameters)
         axs[row, column].set_title(prop, fontsize=parameters["titlesize"])
         create_color_bar(fig, axs[row, column], parameters, subfig)
         axs[row, column].get_xaxis().set_visible(False)
         axs[row, column].get_yaxis().set_visible(False)
-    # if len(maps.keys()) % 2 == 1:
-    #     fig.delaxes(axs[1, image_rows - 1])
+    if len(maps.keys()) % 2 == 1:
+        fig.delaxes(axs[image_rows - 1, 1])
     return
 
 
