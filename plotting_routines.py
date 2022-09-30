@@ -649,9 +649,10 @@ def plot_hist_color(
 
 def plot_parameters(params, multiple=False):
     parameters = {}
-    parameters["x_labelsize"] = 30
-    parameters["y_labelsize"] = 30
+    parameters["x_labelsize"] = 50
+    parameters["y_labelsize"] = 50
 
+    parameters["titlesize"] = 30
     parameters["length_major_ticks"] = 16
     parameters["length_minor_ticks"] = 8
     parameters["width_minor_ticks"] = 3
@@ -673,6 +674,9 @@ def plot_parameters(params, multiple=False):
     # parameters["y_label"] = r"$\log(T) [\mathrm{K}]$"
     # parameters["bar_label"] = r"$\log(\frac{M}{M_\mathrm{max}})$"
 
+    parameters["x_label_convergence"] = r"Grid size $[\log(\mathrm{ckpc})]$"
+    parameters["y_label_convergence"] = r"$f_\mathrm{esc}$"
+
     parameters["nx"] = 45
     parameters["ny"] = 30
 
@@ -685,7 +689,9 @@ def plot_parameters(params, multiple=False):
     parameters["y_lim_min"] = 2.8
     parameters["y_lim_max"] = 6.4
 
-    if params != None:
+    parameters["legendsize"] = 30
+
+    if params is not None:
         for element in params:
             parameters[element] = params[element]
     return parameters
@@ -765,9 +771,52 @@ def plot_multiple_histograms(maps, params=None):
             maps[prop],
         )
         set_ax_params(axs[row, column], parameters)
-        axs[row, column].set_title(prop, fontsize=parameters["y_labelsize"])
+        axs[row, column].set_title(prop, fontsize=parameters["titlesize"])
         create_color_bar(fig, axs[row, column], parameters, subfig)
         axs[row, column].get_xaxis().set_visible(False)
         axs[row, column].get_yaxis().set_visible(False)
+    # if len(maps.keys()) % 2 == 1:
+    #     fig.delaxes(axs[1, image_rows - 1])
+    return
 
+
+def get_quantity_array(df, prop, scale_names):
+    prop_dict = {}
+    for idx in df.index:
+        prop_dict[idx] = []
+        for scale in scale_names:
+            column = prop + "_" + scale
+            quant = df.loc[idx, column]
+            prop_dict[idx].append(quant)
+        prop_dict[idx] = np.array(prop_dict[idx])
+    return prop_dict
+
+
+def plot_convergence(df, prop, scales, scale_names, params=None):
+    parameters = plot_parameters(params)
+    prop_dict = get_quantity_array(df, prop, scale_names)
+    ion_dict = get_quantity_array(df, "Ion_em", scale_names)
+    f, ax = plt.subplots(figsize=(20, 20))
+    all_esc = []
+    all_ion = []
+    for idx in prop_dict:
+        ax.scatter(scales, prop_dict[idx], label=idx, s=100)
+        all_esc.append(prop_dict[idx])
+        all_ion.append(ion_dict[idx])
+    mean_values = np.mean(all_esc, axis=0)
+    mean_weighted = np.sum(
+        np.array(all_esc) * np.array(all_ion), axis=0
+    ) / np.sum(all_ion, axis=0)
+    ax.plot(scales, mean_values, linewidth=5, color="black")
+    ax.plot(scales, mean_weighted, linewidth=5, linestyle="--", color="black")
+    ax.set_xlabel(
+        parameters["x_label_convergence"], size=parameters["y_labelsize"]
+    )
+    ax.set_ylabel(
+        parameters["y_label_convergence"], size=parameters["y_labelsize"]
+    )
+    set_ax_params(ax, parameters)
+    ax.set_yscale("log")
+    ax.set_ylim(5e-3, 1)
+    # ax.legend(fontsize=parameters["legendsize"])
     return
