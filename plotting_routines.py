@@ -795,7 +795,7 @@ def get_quantity_array(df, prop, scale_names):
     return prop_dict
 
 
-def plot_convergence(df, prop, scales, scale_names, params=None):
+def plot_convergence(df, prop, scales, scale_names, params=None, log=True):
     parameters = plot_parameters(params)
     prop_dict = get_quantity_array(df, prop, scale_names)
     ion_dict = get_quantity_array(df, "Ion_em", scale_names)
@@ -819,7 +819,8 @@ def plot_convergence(df, prop, scales, scale_names, params=None):
         parameters["y_label_convergence"], size=parameters["y_labelsize"]
     )
     set_ax_params(ax, parameters)
-    ax.set_yscale("log")
+    if log:
+        ax.set_yscale("log")
     ax.set_ylim(5e-3, 1)
     # ax.legend(fontsize=parameters["legendsize"])
     return
