@@ -75,7 +75,7 @@ def particle_dens(df):
     kg_to_g = 1e3
     df["n_gas"] = (
         df["M_gas"]
-        / (2 * df["r"]) ** 2
+        / (4 * df["r"]) ** 2
         / df["Column_height"]
         / (constants.m_p.value * kg_to_g)
         / mean_molecular_mass
