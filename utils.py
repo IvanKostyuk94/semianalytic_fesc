@@ -113,19 +113,26 @@ def get_snap(snap_num):
 # Returns a subdf of galaxies with various masses
 # Returned df does not necessarely contain 'sample_size'
 # elements as some bins do not contain a galaxy
-def select_sample_df(df, column="M_star_2r", sample_size=100, log=True):
+def select_sample_df(
+    df, column="M_star_2r", sample_size=100, log=True, with_weights=False
+):
     if log:
         group_values = np.log10(df[column])
     else:
         group_values = df[column]
     bins = pd.cut(group_values, sample_size)
     selected_idces = []
+    num_per_bin = []
     for idces in group_values.groupby(bins).groups.values():
         if len(idces) > 0:
+            num_per_bin.append(len(idces))
             selected_idces.append(random.choice(idces))
     selected_idces = selected_idces[::-1]
     test_df = df.loc[selected_idces].copy()
-    return test_df
+    if with_weights:
+        return test_df, np.array(num_per_bin) / np.sum(num_per_bin)
+    else:
+        return test_df
 
 
 def save_to_hdf(hdf_file, idx, approx_grid_size, maps):
