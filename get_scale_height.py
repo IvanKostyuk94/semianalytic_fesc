@@ -203,6 +203,16 @@ def get_grid_cell_num(radius, approx_grid_size, z):
     return grid_cell_num, grid_cell_size
 
 
+def get_adaptive_grid_cell_num(gas_box, avg_dist_weighting, radius):
+    avg_dist = 2 * radius / np.sqrt(gas_box["count"])
+    approx_grid_size = avg_dist * avg_dist_weighting
+    grid_cell_num = int(2 * radius / approx_grid_size)
+    if grid_cell_num == 0:
+        grid_cell_num = 1
+    grid_cell_size = 2 * radius / grid_cell_num
+    return grid_cell_num, grid_cell_size
+
+
 def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
     x_particles = box_particles["Coordinates"][:, 0]
     y_particles = box_particles["Coordinates"][:, 1]
@@ -253,9 +263,11 @@ def update_df_columns(
     sim_path,
     snap_num,
     z,
-    approx_grid_size=0.1,
+    approx_grid_size=None,
     to_hdf=False,
     hdf5_file=None,
+    adaptive=False,
+    avg_dist_weighting=None,
 ):
     mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
 
@@ -264,10 +276,15 @@ def update_df_columns(
     star_masses = []
     grid_cell_sizes = []
 
+    if adaptive:
+        groupname = avg_dist_weighting
+    else:
+        groupname = approx_grid_size
+
     if to_hdf:
-        if str(approx_grid_size) not in hdf5_file:
+        if str(groupname) not in hdf5_file:
             print(f"Creating group for grid size {grid_size}")
-            _ = hdf5_file.create_group(str(approx_grid_size))
+            _ = hdf5_file.create_group(str(groupname))
 
     surface_maps = {}
     counter = 0
@@ -292,10 +309,19 @@ def update_df_columns(
         gas_masses.append(box_particles["Masses"].sum())
         star_masses.append(box_stars["Masses"].sum())
 
-        grid_cell_num, grid_cell_size = get_grid_cell_num(
-            2 * df.loc[idx, "r"], approx_grid_size, z
+        radius = 2 * df.loc[idx, "r"]
+        if adaptive:
+            grid_cell_num, grid_cell_size = get_adaptive_grid_cell_num(
+                box_gas, avg_dist_weighting, radius
+            )
+        else:
+            grid_cell_num, grid_cell_size = get_grid_cell_num(
+                radius, approx_grid_size, z
+            )
+        # Testing
+        print(
+            f"weighting: {avg_dist_weighting}, index: {idx} grid_cell_num:{grid_cell_num}"
         )
-
         maps = get_gridded_surface_data(
             box_gas, box_particles, box_stars, grid_cell_num
         )
@@ -303,41 +329,50 @@ def update_df_columns(
         surface_maps[idx] = maps
 
         if to_hdf:
-            save_to_hdf(hdf5_file, idx, approx_grid_size, maps)
+            if adaptive:
+                save_to_hdf(hdf5_file, idx, avg_dist_weighting, maps)
+            else:
+                save_to_hdf(hdf5_file, idx, approx_grid_size, maps)
 
         counter += 1
         if counter % 100 == 0:
             print(f"{counter/len(df)*100:.2f}% done")
 
     # This is temporarily for testing different grid_sizes
-    grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
+    if adaptive:
+        grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
+    else:
+        grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
     df[grid_column_name] = np.array(grid_cell_sizes)
-    return surface_maps
+    return
 
 
 def update_df_height(
     snap_num,
-    df_name="test_df_updated.pickle",
+    df_name="test_df_ad.pickle",
     base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
-    output_name="test_df_updated.pickle",
     approx_grid_size=0.1,
-    to_hdf=True,
-    hdf_name="maps.hdf5",
+    to_hdf=False,
+    hdf_name="maps_adaptive_full.hdf5",
+    adaptive=False,
+    avg_dist_weighting=None,
 ):
     snap = get_snap(snap_num)
     sim, sim_path = get_sim()
     z = get_redshift(sim, snap_num)
     origin_path = os.path.join(base_path, snap, df_name)
-    destination_path = os.path.join(base_path, snap, output_name)
+    destination_path = os.path.join(base_path, snap, df_name)
     if to_hdf:
         hdf_path = os.path.join(base_path, snap, hdf_name)
         if not os.path.exists(hdf_path):
             hdf_file = h5py.File(hdf_path, "w")
             hdf_file.close()
         hdf_file = h5py.File(hdf_path, "a")
+    else:
+        hdf_file = None
 
     df = pd.read_pickle(origin_path)
     update_df_columns(
@@ -348,6 +383,8 @@ def update_df_height(
         approx_grid_size,
         to_hdf=to_hdf,
         hdf5_file=hdf_file,
+        adaptive=adaptive,
+        avg_dist_weighting=avg_dist_weighting,
     )
     if to_hdf:
         hdf_file.close()
@@ -357,6 +394,46 @@ def update_df_height(
 
 if __name__ == "__main__":
     snap_num = 13
-    grids_to_test = [3, 5, 7, 10]
+    grids_to_test = [
+        0.1,
+        0.15,
+        0.2,
+        0.25,
+        0.3,
+        0.35,
+        0.4,
+        0.45,
+        0.5,
+        0.55,
+        0.6,
+        0.65,
+        0.7,
+        0.75,
+        0.8,
+        0.85,
+        0.9,
+        0.95,
+        1.0,
+        1.5,
+        2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        5.5,
+        6.0,
+        6.5,
+        7.0,
+        7.5,
+        8.0,
+        8.5,
+        9.0,
+        9.5,
+        10.0,
+    ]
     for grid_size in grids_to_test:
-        update_df_height(snap_num, approx_grid_size=grid_size)
+        update_df_height(
+            snap_num, avg_dist_weighting=grid_size, to_hdf=True, adaptive=True
+        )
