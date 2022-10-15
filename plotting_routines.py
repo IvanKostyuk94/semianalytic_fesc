@@ -751,9 +751,10 @@ def plot_multiple_histograms(maps, params=None):
     parameters = plot_parameters(params, multiple=True)
 
     col_norm = get_col_norm(parameters)
+    n_columns = 4
 
-    image_columns = 2
-    image_rows = int(np.ceil(len(maps.keys()) / 2))
+    image_columns = n_columns
+    image_rows = int(np.ceil(len(maps.keys()) / n_columns))
     figsize = (
         parameters["width_per_image"] * image_columns,
         parameters["height_per_image"] * image_rows,
@@ -766,8 +767,8 @@ def plot_multiple_histograms(maps, params=None):
     )
     lin_props = ["f_esc", "f_g", "f_g_crit"]
     for i, prop in enumerate(maps.keys()):
-        column = int(i % 2)
-        row = int(i // 2)
+        column = int(i % n_columns)
+        row = int(i // n_columns)
         if prop in lin_props:
             quant = maps[prop]
         else:
@@ -778,8 +779,8 @@ def plot_multiple_histograms(maps, params=None):
         create_color_bar(fig, axs[row, column], parameters, subfig)
         axs[row, column].get_xaxis().set_visible(False)
         axs[row, column].get_yaxis().set_visible(False)
-    if len(maps.keys()) % 2 == 1:
-        fig.delaxes(axs[image_rows - 1, 1])
+    # if len(maps.keys()) % 2 == 1:
+    #     fig.delaxes(axs[image_rows - 1, 1])
     return
 
 
@@ -795,23 +796,39 @@ def get_quantity_array(df, prop, scale_names):
     return prop_dict
 
 
-def plot_convergence(df, prop, scales, scale_names, params=None, log=True):
+def plot_convergence(
+    df, prop, scales, scale_names, params=None, log=True, weights=None
+):
     parameters = plot_parameters(params)
     prop_dict = get_quantity_array(df, prop, scale_names)
     ion_dict = get_quantity_array(df, "Ion_em", scale_names)
     f, ax = plt.subplots(figsize=(20, 20))
     all_esc = []
     all_ion = []
+    scales = sorted(scales)
     for idx in prop_dict:
-        ax.scatter(scales, prop_dict[idx], label=idx, s=100)
+        ax.scatter(scales, prop_dict[idx], s=100)
         all_esc.append(prop_dict[idx])
         all_ion.append(ion_dict[idx])
+
+    all_esc = np.array(all_esc)
     mean_values = np.mean(all_esc, axis=0)
-    mean_weighted = np.sum(
-        np.array(all_esc) * np.array(all_ion), axis=0
-    ) / np.sum(all_ion, axis=0)
-    ax.plot(scales, mean_values, linewidth=5, color="black")
-    ax.plot(scales, mean_weighted, linewidth=5, linestyle="--", color="black")
+    all_ion = np.array(all_ion)
+    all_ion_weighted = (all_ion.T * weights).T
+    mean_weighted = np.sum(all_esc * all_ion_weighted, axis=0) / np.sum(
+        all_ion_weighted, axis=0
+    )
+    label_mean = r"$<f_\mathrm{esc}>$"
+    label_mean_weighted = r"$<f_\mathrm{esc}>_{n*Q_0}$"
+    ax.plot(scales, mean_values, linewidth=5, color="black", label=label_mean)
+    ax.plot(
+        scales,
+        mean_weighted,
+        linewidth=5,
+        linestyle="--",
+        color="black",
+        label=label_mean_weighted,
+    )
     ax.set_xlabel(
         parameters["x_label_convergence"], size=parameters["y_labelsize"]
     )
@@ -821,6 +838,6 @@ def plot_convergence(df, prop, scales, scale_names, params=None, log=True):
     set_ax_params(ax, parameters)
     if log:
         ax.set_yscale("log")
-    ax.set_ylim(5e-3, 1)
-    # ax.legend(fontsize=parameters["legendsize"])
+    ax.set_ylim(0, 0.125)
+    ax.legend(fontsize=parameters["legendsize"])
     return
