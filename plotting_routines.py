@@ -675,7 +675,9 @@ def plot_parameters(params, multiple=False):
     # parameters["y_label"] = r"$\log(T) [\mathrm{K}]$"
     # parameters["bar_label"] = r"$\log(\frac{M}{M_\mathrm{max}})$"
 
-    parameters["x_label_convergence"] = r"Grid size $[\log(\mathrm{ckpc})]$"
+    parameters[
+        "x_label_convergence"
+    ] = r"Grid size $[\log(\mathrm{avg\_separation})]$"
     parameters["y_label_convergence"] = r"$f_\mathrm{esc}$"
 
     parameters["nx"] = 45
@@ -690,7 +692,7 @@ def plot_parameters(params, multiple=False):
     parameters["y_lim_min"] = 2.8
     parameters["y_lim_max"] = 6.4
 
-    parameters["legendsize"] = 30
+    parameters["legendsize"] = 40
 
     if params is not None:
         for element in params:
@@ -788,8 +790,9 @@ def get_quantity_array(df, prop, scale_names):
     prop_dict = {}
     for idx in df.index:
         prop_dict[idx] = []
+        scale_names = sorted([float(x) for x in scale_names])
         for scale in scale_names:
-            column = prop + "_" + scale
+            column = prop + "_" + str(scale)
             quant = df.loc[idx, column]
             prop_dict[idx].append(quant)
         prop_dict[idx] = np.array(prop_dict[idx])
@@ -838,6 +841,7 @@ def plot_convergence(
     set_ax_params(ax, parameters)
     if log:
         ax.set_yscale("log")
-    ax.set_ylim(0, 0.125)
+    ax.set_xscale("log")
+    ax.set_ylim(0, 0.14)
     ax.legend(fontsize=parameters["legendsize"])
     return
