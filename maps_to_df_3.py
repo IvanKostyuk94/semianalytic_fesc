@@ -78,15 +78,21 @@ def add_map_quantities(df, hdf_file, scale):
 def update_map_df(
     snap_num,
     scale,
-    hdf_filename,
+    hdf_name,
     df_name,
-    output_name,
+    output_name=None,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
 ):
+    if output_name is None:
+        output_name = df_name
     snap = get_snap(snap_num)
+    hdf_filename = hdf_name + ".hdf5"
     hdf_path = os.path.join(base, snap, hdf_filename)
-    origin_path = os.path.join(base, snap, df_name)
-    destination_path = os.path.join(base, snap, output_name)
+
+    df_filename = df_name + ".pickle"
+    output_filename = df_name + ".pickle"
+    origin_path = os.path.join(base, snap, df_filename)
+    destination_path = os.path.join(base, snap, output_filename)
 
     hdf_file = h5py.File(hdf_path, "a")
     df = pd.read_pickle(origin_path)
