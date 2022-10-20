@@ -291,13 +291,16 @@ def update_to_fesc(maps, grid_cell_size, scale_height):
 def update_maps(
     snap_num,
     grid_size,
-    hdf_filename,
+    hdf_name,
     df_name,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
 ):
     snap = get_snap(snap_num)
+    hdf_filename = hdf_name + ".hdf5"
     hdf_path = os.path.join(base, snap, hdf_filename)
-    origin_path = os.path.join(base, snap, df_name)
+
+    df_filename = df_name + ".pickle"
+    origin_path = os.path.join(base, snap, df_filename)
 
     hdf_file = h5py.File(hdf_path, "a")
     group = hdf_file[str(grid_size)]
@@ -326,12 +329,3 @@ if __name__ == "__main__":
         0.15,
     ]
     snap_num = 13
-    for grid_size in grids_to_test:
-        update_maps(
-            snap_num,
-            grid_size=grid_size,
-            hdf_filename="maps_adaptive_full.hdf5",
-            df_name="test_df_ad.pickle",
-            base="/ptmp/mpa/ivkos/semianalytic_fesc",
-        )
-        print(f"Done with {grid_size}")
