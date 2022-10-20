@@ -52,18 +52,23 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     else:
         return
     # The scale here is only for testing
+    # if prop in flux_quantities:
+    #     column_name = prop[:-4] + "em_" + str(scale)
+    # else:
+    #     column_name = prop + "_" + str(scale)
     if prop in flux_quantities:
-        column_name = prop[:-4] + "em_" + str(scale)
+        column_name = prop[:-4] + "em"
     else:
-        column_name = prop + "_" + str(scale)
+        column_name = prop
     df.loc[index, column_name] = quant
     return
 
 
 def add_map_quantities(df, hdf_file, scale):
     for prop in hdf_file[scale][str(df.index[0])].keys():
-        # to be corrected after scale is fixed
-        column_name = prop + "_" + scale
+        # for testing only
+        # column_name = prop + "_" + scale
+        column_name = scale
         df[column_name] = np.nan
         for idx in df.index:
             get_df_quantity(prop, hdf_file, df, idx, scale)
@@ -72,10 +77,10 @@ def add_map_quantities(df, hdf_file, scale):
 
 def update_map_df(
     snap_num,
-    grid_scale,
-    hdf_filename="maps.hdf5",
-    df_name="df_full.pickle",
-    output_name="df_fesc.pickle",
+    scale,
+    hdf_filename,
+    df_name,
+    output_name,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
 ):
     snap = get_snap(snap_num)
@@ -85,7 +90,7 @@ def update_map_df(
 
     hdf_file = h5py.File(hdf_path, "a")
     df = pd.read_pickle(origin_path)
-    add_map_quantities(df, hdf_file, str(grid_scale))
+    add_map_quantities(df, hdf_file, str(scale))
 
     df.to_pickle(destination_path)
     hdf_file.close()
@@ -96,41 +101,6 @@ if __name__ == "__main__":
     grids_to_test = [
         0.1,
         0.15,
-        0.2,
-        0.25,
-        0.3,
-        0.35,
-        0.4,
-        0.45,
-        0.5,
-        0.55,
-        0.6,
-        0.65,
-        0.7,
-        0.75,
-        0.8,
-        0.85,
-        0.9,
-        0.95,
-        1.0,
-        1.5,
-        2.0,
-        2.5,
-        3.0,
-        3.5,
-        4.0,
-        4.5,
-        5.0,
-        5.5,
-        6.0,
-        6.5,
-        7.0,
-        7.5,
-        8.0,
-        8.5,
-        9.0,
-        9.5,
-        10.0,
     ]
     snap_num = 13
     for grid_size in grids_to_test:

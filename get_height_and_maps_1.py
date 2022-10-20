@@ -318,10 +318,6 @@ def update_df_columns(
             grid_cell_num, grid_cell_size = get_grid_cell_num(
                 radius, approx_grid_size, z
             )
-        # Testing
-        print(
-            f"weighting: {avg_dist_weighting}, index: {idx} grid_cell_num:{grid_cell_num}"
-        )
         maps = get_gridded_surface_data(
             box_gas, box_particles, box_stars, grid_cell_num
         )
@@ -339,10 +335,11 @@ def update_df_columns(
             print(f"{counter/len(df)*100:.2f}% done")
 
     # This is temporarily for testing different grid_sizes
-    if adaptive:
-        grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
-    else:
-        grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
+    # if adaptive:
+    #     grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
+    # else:
+    #     grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
+    grid_column_name = "Grid_cell_size"
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
@@ -397,41 +394,6 @@ if __name__ == "__main__":
     grids_to_test = [
         0.1,
         0.15,
-        0.2,
-        0.25,
-        0.3,
-        0.35,
-        0.4,
-        0.45,
-        0.5,
-        0.55,
-        0.6,
-        0.65,
-        0.7,
-        0.75,
-        0.8,
-        0.85,
-        0.9,
-        0.95,
-        1.0,
-        1.5,
-        2.0,
-        2.5,
-        3.0,
-        3.5,
-        4.0,
-        4.5,
-        5.0,
-        5.5,
-        6.0,
-        6.5,
-        7.0,
-        7.5,
-        8.0,
-        8.5,
-        9.0,
-        9.5,
-        10.0,
     ]
     for grid_size in grids_to_test:
         update_df_height(

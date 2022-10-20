@@ -2,19 +2,15 @@ import pandas as pd
 import numpy as np
 from astropy import constants
 from astropy import units as u
-from astropy.constants import m_p
 import os
 import h5py
-from utils import save_to_hdf, get_snap
+from utils import get_snap
 
 # Solar metallicit
 Z_solar = 0.0134
 
 
 def get_surface_dens(maps, grid_cell_size):
-    kg_to_g = 1000
-    m_p_g = m_p.value * kg_to_g
-
     grid_cell_area = grid_cell_size**2
 
     if "Sigma_SFR" in maps.keys():
@@ -296,7 +292,7 @@ def update_maps(
     snap_num,
     grid_size,
     hdf_filename,
-    df_name="test_df_ad.pickle",
+    df_name,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
 ):
     snap = get_snap(snap_num)
@@ -304,7 +300,6 @@ def update_maps(
     origin_path = os.path.join(base, snap, df_name)
 
     hdf_file = h5py.File(hdf_path, "a")
-    print(grid_size)
     group = hdf_file[str(grid_size)]
     df = pd.read_pickle(origin_path)
 
@@ -312,7 +307,8 @@ def update_maps(
         galaxy_name = str(idx)
         galaxy_group = group[galaxy_name]
         # For testing only
-        grid_size_column = "Grid_cell_size_" + str(grid_size)
+        # grid_size_column = "Grid_cell_size_" + str(grid_size)
+        grid_size_column = "Grid_cell_size"
         grid_cell_size = df.loc[idx, grid_size_column]
         scale_height = df.loc[idx, "Column_height"]
         update_to_fesc(
@@ -328,41 +324,6 @@ if __name__ == "__main__":
     grids_to_test = [
         0.1,
         0.15,
-        0.2,
-        0.25,
-        0.3,
-        0.35,
-        0.4,
-        0.45,
-        0.5,
-        0.55,
-        0.6,
-        0.65,
-        0.7,
-        0.75,
-        0.8,
-        0.85,
-        0.9,
-        0.95,
-        1.0,
-        1.5,
-        2.0,
-        2.5,
-        3.0,
-        3.5,
-        4.0,
-        4.5,
-        5.0,
-        5.5,
-        6.0,
-        6.5,
-        7.0,
-        7.5,
-        8.0,
-        8.5,
-        9.0,
-        9.5,
-        10.0,
     ]
     snap_num = 13
     for grid_size in grids_to_test:

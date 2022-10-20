@@ -1,5 +1,4 @@
 import os
-from time import sleep
 import pyTNG.utils as utils
 from pyTNG import data_interface as _data_interface
 import pandas as pd
