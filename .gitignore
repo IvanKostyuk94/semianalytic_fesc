@@ -3,3 +3,4 @@
 !/*.py
 !/*ipynb
 !/*.md
+!/deprecated/*py*
