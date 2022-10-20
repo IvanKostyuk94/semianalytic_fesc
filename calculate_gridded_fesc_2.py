@@ -292,21 +292,20 @@ def update_to_fesc(maps, grid_cell_size, scale_height):
     return
 
 
-def update_full_df(
+def update_maps(
     snap_num,
-    approx_grid_size=0.1,
-    hdf_filename="maps.hdf5",
-    df_name="1_df.pickle",
-    output_name="df_full.pickle",
+    grid_size,
+    hdf_filename,
+    df_name="test_df_ad.pickle",
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
 ):
     snap = get_snap(snap_num)
     hdf_path = os.path.join(base, snap, hdf_filename)
     origin_path = os.path.join(base, snap, df_name)
-    destination_path = os.path.join(base, snap, output_name)
 
     hdf_file = h5py.File(hdf_path, "a")
-    group = hdf_file[str(approx_grid_size)]
+    print(grid_size)
+    group = hdf_file[str(grid_size)]
     df = pd.read_pickle(origin_path)
 
     for idx in df.index:
@@ -326,15 +325,52 @@ def update_full_df(
 
 
 if __name__ == "__main__":
-    grid_sizes = [0.005, 0.01, 0.03, 0.05, 0.07, 0.09, 0.1, 0.2, 0.3]
+    grids_to_test = [
+        0.1,
+        0.15,
+        0.2,
+        0.25,
+        0.3,
+        0.35,
+        0.4,
+        0.45,
+        0.5,
+        0.55,
+        0.6,
+        0.65,
+        0.7,
+        0.75,
+        0.8,
+        0.85,
+        0.9,
+        0.95,
+        1.0,
+        1.5,
+        2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        5.5,
+        6.0,
+        6.5,
+        7.0,
+        7.5,
+        8.0,
+        8.5,
+        9.0,
+        9.5,
+        10.0,
+    ]
     snap_num = 13
-    for grid_size in grid_sizes:
-        update_full_df(
+    for grid_size in grids_to_test:
+        update_maps(
             snap_num,
-            approx_grid_size=grid_size,
-            hdf_filename="maps.hdf5",
-            df_name="test_df_updated.pickle",
-            output_name="df_full.pickle",
+            grid_size=grid_size,
+            hdf_filename="maps_adaptive_full.hdf5",
+            df_name="test_df_ad.pickle",
             base="/ptmp/mpa/ivkos/semianalytic_fesc",
         )
         print(f"Done with {grid_size}")

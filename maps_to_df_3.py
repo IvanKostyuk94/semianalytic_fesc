@@ -93,7 +93,11 @@ def update_map_df(
 
 
 if __name__ == "__main__":
-    grid_sizes = [
+    grids_to_test = [
+        0.1,
+        0.15,
+        0.2,
+        0.25,
         0.3,
         0.35,
         0.4,
@@ -109,35 +113,33 @@ if __name__ == "__main__":
         0.9,
         0.95,
         1.0,
-        1.05,
-        1.1,
-        1.15,
-        1.2,
-        1.25,
-        1.3,
-        1.35,
-        1.4,
-        1.45,
         1.5,
-        1.55,
-        1.6,
-        1.65,
-        1.7,
-        1.75,
-        1.8,
-        1.85,
-        1.9,
-        1.95,
         2.0,
+        2.5,
+        3.0,
+        3.5,
+        4.0,
+        4.5,
+        5.0,
+        5.5,
+        6.0,
+        6.5,
+        7.0,
+        7.5,
+        8.0,
+        8.5,
+        9.0,
+        9.5,
+        10.0,
     ]
     snap_num = 13
-    for grid_size in grid_sizes:
+    for grid_size in grids_to_test:
         update_map_df(
             snap_num,
             grid_scale=grid_size,
-            hdf_filename="maps2.hdf5",
-            df_name="test_df2_updated.pickle",
-            output_name="test_df2_updated.pickle",
+            hdf_filename="maps_adaptive_full.hdf5",
+            df_name="test_df_ad.pickle",
+            output_name="test_df_ad.pickle",
             base="/ptmp/mpa/ivkos/semianalytic_fesc",
         )
         print(f"Done with {grid_size}")
