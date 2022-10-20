@@ -283,7 +283,7 @@ def update_df_columns(
 
     if to_hdf:
         if str(groupname) not in hdf5_file:
-            print(f"Creating group for grid size {grid_size}")
+            print(f"Creating group for grid scale {groupname}")
             _ = hdf5_file.create_group(str(groupname))
 
     surface_maps = {}
@@ -347,15 +347,17 @@ def update_df_columns(
     return
 
 
-def update_df_height(
+# Both the maps and the height are calculated at the same time
+# in order to be able to use the particle box
+def update_df_height_make_maps(
     snap_num,
-    df_name="test_df_ad.pickle",
-    base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
-    approx_grid_size=0.1,
+    df_name,
+    hdf_name,
     to_hdf=False,
-    hdf_name="maps_adaptive_full.hdf5",
     adaptive=False,
+    base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
     avg_dist_weighting=None,
+    approx_grid_size=None,
 ):
     snap = get_snap(snap_num)
     sim, sim_path = get_sim()
@@ -363,7 +365,8 @@ def update_df_height(
     origin_path = os.path.join(base_path, snap, df_name)
     destination_path = os.path.join(base_path, snap, df_name)
     if to_hdf:
-        hdf_path = os.path.join(base_path, snap, hdf_name)
+        hdf_name_full = hdf_name + ".hdf5"
+        hdf_path = os.path.join(base_path, snap, hdf_name_full)
         if not os.path.exists(hdf_path):
             hdf_file = h5py.File(hdf_path, "w")
             hdf_file.close()
@@ -395,7 +398,3 @@ if __name__ == "__main__":
         0.1,
         0.15,
     ]
-    for grid_size in grids_to_test:
-        update_df_height(
-            snap_num, avg_dist_weighting=grid_size, to_hdf=True, adaptive=True
-        )
