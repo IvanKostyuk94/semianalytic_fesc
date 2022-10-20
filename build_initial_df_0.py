@@ -7,7 +7,6 @@ from utils import (
     dist_to_cm,
 )
 import os
-from astropy import units as u
 
 
 def build_new_df(
@@ -25,7 +24,7 @@ def build_new_df(
     if not os.path.exists(snap_path):
         print(f"Creating directory '{snap_path}' as it does not exist yet.")
         os.system(f"mkdir {snap_path}")
-    save_path = os.path.join(snap_path, "0_" + save_name + ".pickle")
+    save_path = os.path.join(snap_path, save_name + ".pickle")
     save_df.to_pickle(save_path)
     return
 
