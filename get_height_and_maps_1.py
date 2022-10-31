@@ -15,6 +15,7 @@ from utils import (
 )
 from sklearn.decomposition import PCA
 from scipy.stats import binned_statistic_2d
+import sys
 
 
 h = TNGcosmo.h
@@ -224,14 +225,18 @@ def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
         statistic="sum",
         bins=grid_cell_num,
     )
-    metallicities = box_particles["GFM_Metallicity"]
-    binned_metallicities, *_ = binned_statistic_2d(
+    metallicities_masses = (
+        box_particles["GFM_Metallicity"] * box_particles["Masses"]
+    )
+    binned_metallicities_masses, *_ = binned_statistic_2d(
         x_particles,
         y_particles,
-        values=metallicities,
+        values=metallicities_masses,
         statistic="sum",
         bins=grid_cell_num,
     )
+
+    binned_metallicities = binned_metallicities_masses / binned_masses
 
     x_gas = box_gas["Coordinates"][:, 0]
     y_gas = box_gas["Coordinates"][:, 1]
@@ -332,14 +337,15 @@ def update_df_columns(
 
         counter += 1
         if counter % 100 == 0:
-            print(f"{counter/len(df)*100:.2f}% done")
+            sys.stdout.write(f"\r{counter/len(df)*100:.2f}% done")
+            sys.stdout.flush()
 
     # This is temporarily for testing different grid_sizes
-    # if adaptive:
-    #     grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
-    # else:
-    #     grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
-    grid_column_name = "Grid_cell_size"
+    if adaptive:
+        grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
+    else:
+        grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
+    # grid_column_name = "Grid_cell_size"
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
@@ -362,8 +368,10 @@ def update_df_height_make_maps(
     snap = get_snap(snap_num)
     sim, sim_path = get_sim()
     z = get_redshift(sim, snap_num)
-    origin_path = os.path.join(base_path, snap, df_name)
-    destination_path = os.path.join(base_path, snap, df_name)
+
+    df_filename = df_name + ".pickle"
+    origin_path = os.path.join(base_path, snap, df_filename)
+    destination_path = os.path.join(base_path, snap, df_filename)
     if to_hdf:
         hdf_name_full = hdf_name + ".hdf5"
         hdf_path = os.path.join(base_path, snap, hdf_name_full)
@@ -390,11 +398,3 @@ def update_df_height_make_maps(
         hdf_file.close()
     df.to_pickle(destination_path)
     return
-
-
-if __name__ == "__main__":
-    snap_num = 13
-    grids_to_test = [
-        0.1,
-        0.15,
-    ]
