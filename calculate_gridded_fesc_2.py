@@ -9,6 +9,8 @@ from utils import get_snap
 # Solar metallicit
 Z_solar = 0.0134
 
+np.seterr(divide="ignore", invalid="ignore")
+
 
 def get_surface_dens(maps, grid_cell_size):
     grid_cell_area = grid_cell_size**2
@@ -310,8 +312,8 @@ def update_maps(
         galaxy_name = str(idx)
         galaxy_group = group[galaxy_name]
         # For testing only
-        # grid_size_column = "Grid_cell_size_" + str(grid_size)
-        grid_size_column = "Grid_cell_size"
+        grid_size_column = "Grid_cell_size_" + str(grid_size)
+        # grid_size_column = "Grid_cell_size"
         grid_cell_size = df.loc[idx, grid_size_column]
         scale_height = df.loc[idx, "Column_height"]
         update_to_fesc(
@@ -321,11 +323,3 @@ def update_maps(
         )
     hdf_file.close()
     return
-
-
-if __name__ == "__main__":
-    grids_to_test = [
-        0.1,
-        0.15,
-    ]
-    snap_num = 13
