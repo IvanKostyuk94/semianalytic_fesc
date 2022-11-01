@@ -817,21 +817,23 @@ def plot_convergence(
     all_esc = np.array(all_esc)
     mean_values = np.mean(all_esc, axis=0)
     all_ion = np.array(all_ion)
-    all_ion_weighted = (all_ion.T * weights).T
-    mean_weighted = np.sum(all_esc * all_ion_weighted, axis=0) / np.sum(
-        all_ion_weighted, axis=0
-    )
     label_mean = r"$<f_\mathrm{esc}>$"
-    label_mean_weighted = r"$<f_\mathrm{esc}>_{n*Q_0}$"
+
     ax.plot(scales, mean_values, linewidth=5, color="black", label=label_mean)
-    ax.plot(
-        scales,
-        mean_weighted,
-        linewidth=5,
-        linestyle="--",
-        color="black",
-        label=label_mean_weighted,
-    )
+    if weights is not None:
+        all_ion_weighted = (all_ion.T * weights).T
+        mean_weighted = np.sum(all_esc * all_ion_weighted, axis=0) / np.sum(
+            all_ion_weighted, axis=0
+        )
+        label_mean_weighted = r"$<f_\mathrm{esc}>_{n*Q_0}$"
+        ax.plot(
+            scales,
+            mean_weighted,
+            linewidth=5,
+            linestyle="--",
+            color="black",
+            label=label_mean_weighted,
+        )
     ax.set_xlabel(
         parameters["x_label_convergence"], size=parameters["y_labelsize"]
     )
@@ -842,6 +844,6 @@ def plot_convergence(
     if log:
         ax.set_yscale("log")
     ax.set_xscale("log")
-    ax.set_ylim(0, 0.14)
+    ax.set_ylim(1e-2, 1)
     ax.legend(fontsize=parameters["legendsize"])
     return
