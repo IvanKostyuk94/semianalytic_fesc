@@ -7,6 +7,7 @@ import astropy.units as u
 
 np.seterr(divide="ignore", invalid="ignore")
 
+
 def get_average_N_d(maps):
     return 1 / np.sum(1 / np.array(maps["N_d"]))
 
@@ -31,20 +32,24 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
         "f_g",
         "f_g_crit",
         "p_r",
-        "sigma_d_H" "n_gas",
+        "sigma_d_H",
+        "n_gas",
     ]
     if prop in summed_quantities:
         quant = np.sum(maps[prop])
     elif prop in flux_quantities:
         cm_to_kpc = (1 * u.cm).to(u.kpc).value
-        grid_column = "Grid_cell_size"
+        # grid_column = "Grid_cell_size"
+        # This is only for convergence testing
+        grid_column = f"Grid_cell_size_{scale}"
         grid_size = df.loc[index, grid_column]
         quant = np.sum(maps[prop]) * grid_size**2 * cm_to_kpc**2
     elif prop in average_quantities:
         quant = np.mean(np.ma.masked_invalid(maps[prop]))
     elif prop == "Metallicity":
         quant = np.sum(
-            np.array(maps["M_gas"]) * np.array(maps["Metallicity"])
+            np.array(maps["M_gas"])
+            * np.ma.masked_invalid(np.array(maps["Metallicity"]))
         ) / np.sum(maps["M_gas"])
     elif prop == "f_esc":
         quant = np.sum(
