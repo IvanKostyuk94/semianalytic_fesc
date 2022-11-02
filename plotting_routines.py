@@ -1,11 +1,6 @@
-import os
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 from matplotlib import colors
-from matplotlib.colors import LogNorm
-from matplotlib.colors import Normalize
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy import stats
 from matplotlib import colormaps
@@ -94,7 +89,7 @@ def plot_fesc_dependence(
         length=x_tick_minor_size, width=x_tick_minor_width, which="minor"
     )
 
-    if modes == None:
+    if modes is None:
         modes = ["r", "2r", "sf_r", "sf_2r"]
         plt_labels = modes
 
@@ -112,7 +107,7 @@ def plot_fesc_dependence(
             alpha=0.5,
         )
 
-    if labels != None:
+    if labels is not None:
         ax.set_xlabel(labels["x"], size=labelsize)
         ax.set_ylabel(labels["y"], size=labelsize)
     plt.legend(fontsize=legendsize)
@@ -176,13 +171,13 @@ def plot_prop_dependence(
         x_grid = np.linspace(np.min(x_val), np.max(x_val), 100)
         ax.plot(x_grid, m * x_grid + b, color="black", linewidth=4)
 
-    if labels != None:
+    if labels is not None:
         ax.set_xlabel(labels["x"], size=labelsize)
         ax.set_ylabel(labels["y"], size=labelsize)
 
-    if xlim != None:
+    if xlim is not None:
         plt.xlim(xlim[0], xlim[1])
-    if ylim != None:
+    if ylim is not None:
         plt.ylim(ylim[0], ylim[1])
     plt.show()
     return
@@ -345,7 +340,7 @@ def plot_scatter(
         df, halo_prop=prop, bins=bins, y_axis=y_axis_bpass, threshold=threshold
     )
 
-    f = plt.figure()
+    _ = plt.figure()
     plt.subplots_adjust(hspace=0.001)
     plt.subplots_adjust(wspace=0.001)
 
@@ -559,7 +554,7 @@ def plot_hist_color(
 
     x_label = "$M_{\star} [\log(M_{\u2609})]$"
 
-    df.sort_values(by="M_star_sun", inplace=True)
+    df.sort_values(by=x_prop, inplace=True)
     x_values, f_esc, prop_norm = get_hist_scatter(
         df, prop=prop, bin_width=bin_width, mode=mode, y_axis=y_axis
     )
@@ -569,7 +564,7 @@ def plot_hist_color(
     f, ax = plt.subplots()
 
     color_data = prop_norm[prop]
-    if label == None:
+    if label is None:
         bar_label = f"$\Delta ${prop}"
     else:
         bar_label = label
@@ -786,12 +781,11 @@ def plot_multiple_histograms(maps, params=None):
     return
 
 
-def get_quantity_array(df, prop, scale_names):
+def get_quantity_array(df, prop, scales):
     prop_dict = {}
     for idx in df.index:
         prop_dict[idx] = []
-        scale_names = sorted([float(x) for x in scale_names])
-        for scale in scale_names:
+        for scale in scales:
             column = prop + "_" + str(scale)
             quant = df.loc[idx, column]
             prop_dict[idx].append(quant)
@@ -799,12 +793,22 @@ def get_quantity_array(df, prop, scale_names):
     return prop_dict
 
 
-def plot_convergence(
-    df, prop, scales, scale_names, params=None, log=True, weights=None
-):
+def get_scales(df, prop):
+    scales = []
+    for column in df.columns:
+        if column.startswith(prop):
+            try:
+                scales.append(float(column[len(prop) + 1 :]))
+            except ValueError:
+                continue
+    return sorted(scales)
+
+
+def plot_convergence(df, prop="f_esc", params=None, log=True, weights=None):
+    scales = get_scales(df, prop)
     parameters = plot_parameters(params)
-    prop_dict = get_quantity_array(df, prop, scale_names)
-    ion_dict = get_quantity_array(df, "Ion_em", scale_names)
+    prop_dict = get_quantity_array(df, prop, scales)
+    ion_dict = get_quantity_array(df, "Ion_em", scales)
     f, ax = plt.subplots(figsize=(20, 20))
     all_esc = []
     all_ion = []
