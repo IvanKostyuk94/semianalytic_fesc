@@ -41,13 +41,19 @@ def get_lum_from_sfr(maps):
     if "Ion_flux" in maps.keys():
         del maps["Ion_flux"]
     maps["Ion_flux"] = (
-        np.array(maps["Sigma_SFR"]) * sigma_sfr_to_ion_flux / cm_to_kpc**2
+        np.array(maps["Sigma_SFR"])
+        * sigma_sfr_to_ion_flux
+        / cm_to_kpc**2
+        / 2
     )
 
     if "Bol_flux" in maps.keys():
         del maps["Bol_flux"]
     maps["Bol_flux"] = (
-        np.array(maps["Sigma_SFR"]) * bolometric_correction / cm_to_kpc**2
+        np.array(maps["Sigma_SFR"])
+        * bolometric_correction
+        / cm_to_kpc**2
+        / 2
     )
     return
 
@@ -312,8 +318,8 @@ def update_maps(
         galaxy_name = str(idx)
         galaxy_group = group[galaxy_name]
         # For testing only
-        grid_size_column = "Grid_cell_size_" + str(grid_size)
-        # grid_size_column = "Grid_cell_size"
+        # grid_size_column = "Grid_cell_size_" + str(grid_size)
+        grid_size_column = "Grid_cell_size"
         grid_cell_size = df.loc[idx, grid_size_column]
         scale_height = df.loc[idx, "Column_height"]
         update_to_fesc(
