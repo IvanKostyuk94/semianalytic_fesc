@@ -766,18 +766,104 @@ def plot_multiple_histograms(maps, params=None):
     for i, prop in enumerate(maps.keys()):
         column = int(i % n_columns)
         row = int(i // n_columns)
+        ax = axs[row, column]
         if prop in lin_props:
             quant = maps[prop]
         else:
             quant = np.log10(maps[prop])
-        subfig = axs[row, column].pcolormesh(quant, cmap=colormaps["inferno"])
-        set_ax_params(axs[row, column], parameters)
-        axs[row, column].set_title(prop, fontsize=parameters["titlesize"])
-        create_color_bar(fig, axs[row, column], parameters, subfig)
-        axs[row, column].get_xaxis().set_visible(False)
-        axs[row, column].get_yaxis().set_visible(False)
+        subfig = ax.pcolormesh(quant, cmap=colormaps["inferno"])
+        set_ax_params(ax, parameters)
+        ax.set_title(prop, fontsize=parameters["titlesize"])
+        create_color_bar(fig, ax, parameters, subfig)
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
     # if len(maps.keys()) % 2 == 1:
     #     fig.delaxes(axs[image_rows - 1, 1])
+    return
+
+
+def get_convergence_maps(hdf, halo_idx, prop):
+    maps = {}
+    for key in hdf.keys():
+        if key == "None":
+            continue
+        maps[float(key)] = hdf[key][str(halo_idx)][prop]
+    return maps
+
+
+def trim_axes(axs, N):
+    axs = axs.flat
+    for ax in axs[N:]:
+        ax.remove()
+    return axs[:N]
+
+
+def get_range(maps):
+    low = []
+    high = []
+    for key in maps.keys():
+        low.append(np.min(maps[key]))
+        high.append(np.max(maps[key]))
+    return np.min(low), np.max(high)
+
+
+def plot_prop_maps(
+    df, hdf, halo_idx, skip=1, params=None, prop="f_esc", log=False
+):
+    maps = get_convergence_maps(hdf, halo_idx, prop=prop)
+    maps = dict(sorted(maps.items()))
+    if prop == "f_esc":
+        vmin, vmax = 0, 1
+    else:
+        vmin, vmax = None, None
+    if log:
+        # vmin, vmax = np.log10(vmin), np.log10(vmax)
+        for key in maps.keys():
+            maps[key] = np.log10(maps[key])
+
+    parameters = plot_parameters(params, multiple=True)
+
+    image_columns = 4
+    image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
+    figsize = (
+        parameters["width_per_image"] * image_columns,
+        parameters["height_per_image"] * image_rows,
+    )
+    fig, axs = plt.subplots(
+        ncols=image_columns,
+        nrows=image_rows,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
+        figsize=figsize,
+    )
+
+    counter = 0
+    for i, scale in enumerate(maps.keys()):
+        if i % skip == 0:
+            column = int(i // skip % image_columns)
+            row = int(i // skip // image_columns)
+            ax = axs[row, column]
+
+            subfig = ax.pcolormesh(
+                maps[scale], cmap=colormaps["inferno"], vmin=vmin, vmax=vmax
+            )
+
+            set_ax_params(ax, parameters)
+            if prop == "f_esc":
+                f_esc = df.loc[halo_idx, f"f_esc_{scale}"]
+                ax.set_title(
+                    rf"$\lambda = ${scale:.2f}, $f_\mathrm{{esc}} = ${f_esc:.2f}",
+                    fontsize=parameters["titlesize"],
+                )
+            elif prop == "Ion_flux":
+                ax.set_title(
+                    rf"$\lambda = ${scale:.2f}: $F_i$",
+                    fontsize=parameters["titlesize"],
+                )
+            create_color_bar(fig, ax, parameters, subfig)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            counter += 1
+    trim_axes(axs, counter)
     return
 
 
@@ -795,20 +881,24 @@ def get_quantity_array(df, prop, scales):
 
 def get_scales(df, prop):
     scales = []
+    scale_names = []
     for column in df.columns:
         if column.startswith(prop):
             try:
                 scales.append(float(column[len(prop) + 1 :]))
+                scale_names.append(column[len(prop) + 1 :])
             except ValueError:
                 continue
-    return sorted(scales)
+    zipped = sorted(zip(scales, scale_names), key=lambda x: x[0])
+    scales, scale_names = zip(*zipped)
+    return list(scales), list(scale_names)
 
 
 def plot_convergence(df, prop="f_esc", params=None, log=True, weights=None):
-    scales = get_scales(df, prop)
+    scales, scale_names = get_scales(df, prop)
     parameters = plot_parameters(params)
-    prop_dict = get_quantity_array(df, prop, scales)
-    ion_dict = get_quantity_array(df, "Ion_em", scales)
+    prop_dict = get_quantity_array(df, prop, scale_names)
+    ion_dict = get_quantity_array(df, "Ion_em", scale_names)
     f, ax = plt.subplots(figsize=(20, 20))
     all_esc = []
     all_ion = []
@@ -845,9 +935,13 @@ def plot_convergence(df, prop="f_esc", params=None, log=True, weights=None):
         parameters["y_label_convergence"], size=parameters["y_labelsize"]
     )
     set_ax_params(ax, parameters)
-    if log:
-        ax.set_yscale("log")
+
     ax.set_xscale("log")
-    ax.set_ylim(1e-2, 1)
+    if log:
+        ax.set_ylim(1e-3, 1)
+        ax.set_yscale("log")
+    else:
+        ax.set_ylim(0, 0.15)
+
     ax.legend(fontsize=parameters["legendsize"])
     return
