@@ -14,7 +14,7 @@ def get_column_height_dens(df):
 
     kg_to_g = 1000
     m_p_g = m_p.value * kg_to_g
-    df["Column_dens"] = df["M_gas"] / area / m_p_g
+    df["Column_dens"] = df["M_gas"] / area / m_p_g / 2
 
     df["Sigma_SFR"] = df["SFR"] / area
     df["Sigma_gas"] = df["M_gas"] / area
@@ -30,8 +30,12 @@ def get_lum_from_sfr(df):
     mean_phot_e_ion_spec = 20.4
     bolometric_correction = 5
     cm_to_kpc = (1 * u.cm).to(u.kpc).value
-    df["Ion_flux"] = df["Sigma_SFR"] * sigma_sfr_to_ion_flux / cm_to_kpc**2
-    df["Bol_flux"] = df["Sigma_SFR"] * bolometric_correction / cm_to_kpc**2
+    df["Ion_flux"] = (
+        df["Sigma_SFR"] * sigma_sfr_to_ion_flux / cm_to_kpc**2 / 2
+    )
+    df["Bol_flux"] = (
+        df["Sigma_SFR"] * bolometric_correction / cm_to_kpc**2 / 2
+    )
     return
 
 
@@ -79,6 +83,7 @@ def particle_dens(df):
         / df["Column_height"]
         / (constants.m_p.value * kg_to_g)
         / mean_molecular_mass
+        / 2
     )
     return
 
@@ -210,15 +215,19 @@ def update_to_fesc(df):
 
 
 if __name__ == "__main__":
-    level_2_name = "height_df.pickle"
+    level_2_name = "test_df_ad.pickle"
     snap_num = 13
-    level_3_name = "full_height_df.pickle"
-    base = "/ptmp/mpa/ivkos/semianalytic_fesc/sn013"
+    level_3_name = "test_df_ad.pickle"
+    base = "/ptmp/mpa/ivkos/semianalytic_fesc/sn013/grid_tests"
 
     df_path = os.path.join(base, level_2_name)
     df = pd.read_pickle(df_path)
+    df["M_gas"] = df["M_gas_0.1"]
+    df["M_star"] = df["M_star_0.1"]
+    df["SFR"] = df["SFR_0.1"]
+    df["Z"] = df["Metallicity_0.1"]
 
     update_to_fesc(df)
-
+    print("finished updating")
     save_path = os.path.join(base, level_3_name)
     df.to_pickle(save_path)
