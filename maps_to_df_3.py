@@ -38,12 +38,11 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     if prop in summed_quantities:
         quant = np.sum(maps[prop])
     elif prop in flux_quantities:
-        cm_to_kpc = (1 * u.cm).to(u.kpc).value
-        # grid_column = "Grid_cell_size"
+        grid_column = "Grid_cell_size"
         # This is only for convergence testing
-        grid_column = f"Grid_cell_size_{scale}"
+        # grid_column = f"Grid_cell_size_{scale}"
         grid_size = df.loc[index, grid_column]
-        quant = np.sum(maps[prop]) * grid_size**2 * cm_to_kpc**2
+        quant = np.sum(maps[prop]) * grid_size**2
     elif prop in average_quantities:
         quant = np.mean(np.ma.masked_invalid(maps[prop]))
     elif prop == "Metallicity":
@@ -58,14 +57,14 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     else:
         return
     # The scale here is only for testing
-    if prop in flux_quantities:
-        column_name = prop[:-4] + "em_" + str(scale)
-    else:
-        column_name = prop + "_" + str(scale)
     # if prop in flux_quantities:
-    #     column_name = prop[:-4] + "em"
+    #     column_name = prop[:-4] + "em_" + str(scale)
     # else:
-    #     column_name = prop
+    #     column_name = prop + "_" + str(scale)
+    if prop in flux_quantities:
+        column_name = prop[:-4] + "em"
+    else:
+        column_name = prop
     df.loc[index, column_name] = quant
     return
 
@@ -73,8 +72,8 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
 def add_map_quantities(df, hdf_file, scale):
     for prop in hdf_file[scale][str(df.index[0])].keys():
         # for testing only
-        column_name = prop + "_" + scale
-        # column_name = scale
+        # column_name = prop + "_" + scale
+        column_name = scale
         df[column_name] = np.nan
         for idx in df.index:
             get_df_quantity(prop, hdf_file, df, idx, scale)
