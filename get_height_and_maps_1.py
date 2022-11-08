@@ -63,7 +63,7 @@ def map_to_new_dict(particles, relevant):
     return rel_particles
 
 
-def select_box_particles(particles):
+def select_box_gas(particles):
     if particles["count"] == 0:
         return particles
     else:
@@ -75,7 +75,7 @@ def select_box_particles(particles):
     return rel_particles
 
 
-def select_sphere_particles(particles, df, idx, z, is_relative):
+def select_sphere_gas(particles, df, idx, z, is_relative):
     if particles["count"] == 0:
         return particles
     else:
@@ -97,36 +97,34 @@ def get_relative_coord(particles, df, idx):
     return
 
 
-def create_particle_box(gas, particles, df, idx, z, stars=None):
-    get_relative_coord(particles, df, idx)
-    sphere_particles = select_sphere_particles(
-        particles, df, idx, z, is_relative=True
-    )
-    # Send a flag identifying that there are too few gas particles
+def create_particle_box(gas, df, idx, z, stars=None):
+    get_relative_coord(gas, df, idx)
+    sphere_gas = select_sphere_gas(gas, df, idx, z, is_relative=True)
+    # Send a flag identifying that there are too few gas gas
     # for a proper resolution
-    if sphere_particles["count"] < 5:
+    if sphere_gas["count"] < 5:
         if stars is not None:
             return 0, 0, 0
         else:
             return 0, 0
     pca = PCA(3)
-    pca.fit(sphere_particles["Coordinates"])
-    particles["Coordinates"] = pca.transform(particles["Coordinates"])
-    get_normed_coord(particles, df, idx, z, is_relative=True)
-    box_particles = select_box_particles(particles)
+    pca.fit(sphere_gas["Coordinates"])
+    gas["Coordinates"] = pca.transform(gas["Coordinates"])
+    get_normed_coord(gas, df, idx, z, is_relative=True)
+    box_gas = select_box_gas(gas)
 
     get_relative_coord(gas, df, idx)
     gas["Coordinates"] = pca.transform(gas["Coordinates"])
     get_normed_coord(gas, df, idx, z, is_relative=True)
-    box_gas = select_box_particles(gas)
+    box_gas = select_box_gas(gas)
     if stars is not None:
         get_relative_coord(stars, df, idx)
         stars["Coordinates"] = pca.transform(stars["Coordinates"])
         get_normed_coord(stars, df, idx, z, is_relative=True)
-        box_stars = select_box_particles(stars)
-        return box_gas, box_particles, box_stars
+        box_stars = select_box_gas(stars)
+        return box_gas, box_stars
     else:
-        return box_gas, box_particles
+        return box_gas
 
 
 def get_scale_height(box_particles, interval=None):
@@ -214,36 +212,32 @@ def get_adaptive_grid_cell_num(gas_box, avg_dist_weighting, radius):
     return grid_cell_num, grid_cell_size
 
 
-def get_gridded_surface_data(box_gas, box_particles, box_stars, grid_cell_num):
-    x_particles = box_particles["Coordinates"][:, 0]
-    y_particles = box_particles["Coordinates"][:, 1]
-    masses = box_particles["Masses"]
+def get_gridded_surface_data(box_gas, box_stars, grid_cell_num):
+    x_gas = box_gas["Coordinates"][:, 0]
+    y_gas = box_gas["Coordinates"][:, 1]
+    masses = box_gas["Masses"]
     binned_masses, *_ = binned_statistic_2d(
-        x_particles,
-        y_particles,
+        x_gas,
+        y_gas,
         values=masses,
         statistic="sum",
         bins=grid_cell_num,
     )
-    metallicities_masses = (
-        box_particles["GFM_Metallicity"] * box_particles["Masses"]
+    sfr = box_gas["StarFormationRate"]
+    binned_sfr, *_ = binned_statistic_2d(
+        x_gas, y_gas, values=sfr, statistic="sum", bins=grid_cell_num
     )
+
+    metallicities_masses = box_gas["GFM_Metallicity"] * box_gas["Masses"]
     binned_metallicities_masses, *_ = binned_statistic_2d(
-        x_particles,
-        y_particles,
+        x_gas,
+        y_gas,
         values=metallicities_masses,
         statistic="sum",
         bins=grid_cell_num,
     )
 
     binned_metallicities = binned_metallicities_masses / binned_masses
-
-    x_gas = box_gas["Coordinates"][:, 0]
-    y_gas = box_gas["Coordinates"][:, 1]
-    sfr = box_gas["StarFormationRate"]
-    binned_sfr, *_ = binned_statistic_2d(
-        x_gas, y_gas, values=sfr, statistic="sum", bins=grid_cell_num
-    )
 
     x_stars = box_stars["Coordinates"][:, 0]
     y_stars = box_stars["Coordinates"][:, 1]
@@ -297,21 +291,20 @@ def update_df_columns(
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
         wind, stars = separate_wind_stars(wind_stars)
-        gas_wind = merge_gas_wind(gas, wind)
-        box_gas, box_particles, box_stars = create_particle_box(
-            gas, gas_wind, df, idx, z, stars
-        )
-        if box_particles == 0:
-            print(f"Dropping halo {idx}: too few particles")
+        # Do not merge gas and wind since wind is mostly ionized
+        # gas_wind = merge_gas_wind(gas, wind)
+        box_gas, box_stars = create_particle_box(gas, gas, df, idx, z, stars)
+        if box_gas == 0:
+            print(f"Dropping halo {idx}: too few gas particles")
             df.drop(idx, inplace=True)
             continue
         if box_gas["StarFormationRate"].sum() == 0:
             print(f"Dropping halo {idx}: no star formation")
             df.drop(idx, inplace=True)
             continue
-        scale_height = get_scale_height(box_particles)
+        scale_height = get_scale_height(box_gas)
         scale_heights.append(scale_height)
-        gas_masses.append(box_particles["Masses"].sum())
+        gas_masses.append(box_gas["Masses"].sum())
         star_masses.append(box_stars["Masses"].sum())
 
         radius = 2 * df.loc[idx, "r"]
@@ -323,9 +316,7 @@ def update_df_columns(
             grid_cell_num, grid_cell_size = get_grid_cell_num(
                 radius, approx_grid_size, z
             )
-        maps = get_gridded_surface_data(
-            box_gas, box_particles, box_stars, grid_cell_num
-        )
+        maps = get_gridded_surface_data(box_gas, box_stars, grid_cell_num)
         grid_cell_sizes.append(grid_cell_size)
         surface_maps[idx] = maps
 
@@ -341,11 +332,11 @@ def update_df_columns(
             sys.stdout.flush()
 
     # This is temporarily for testing different grid_sizes
-    if adaptive:
-        grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
-    else:
-        grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
-    # grid_column_name = "Grid_cell_size"
+    # if adaptive:
+    #     grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
+    # else:
+    #     grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
+    grid_column_name = "Grid_cell_size"
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
