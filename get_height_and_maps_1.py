@@ -104,19 +104,15 @@ def create_particle_box(gas, df, idx, z, stars=None):
     # for a proper resolution
     if sphere_gas["count"] < 5:
         if stars is not None:
-            return 0, 0, 0
-        else:
             return 0, 0
+        else:
+            return 0
     pca = PCA(3)
     pca.fit(sphere_gas["Coordinates"])
     gas["Coordinates"] = pca.transform(gas["Coordinates"])
     get_normed_coord(gas, df, idx, z, is_relative=True)
     box_gas = select_box_gas(gas)
 
-    get_relative_coord(gas, df, idx)
-    gas["Coordinates"] = pca.transform(gas["Coordinates"])
-    get_normed_coord(gas, df, idx, z, is_relative=True)
-    box_gas = select_box_gas(gas)
     if stars is not None:
         get_relative_coord(stars, df, idx)
         stars["Coordinates"] = pca.transform(stars["Coordinates"])
@@ -290,10 +286,10 @@ def update_df_columns(
     for idx in df.index:
         gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
         wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
-        wind, stars = separate_wind_stars(wind_stars)
+        _, stars = separate_wind_stars(wind_stars)
         # Do not merge gas and wind since wind is mostly ionized
         # gas_wind = merge_gas_wind(gas, wind)
-        box_gas, box_stars = create_particle_box(gas, gas, df, idx, z, stars)
+        box_gas, box_stars = create_particle_box(gas, df, idx, z, stars)
         if box_gas == 0:
             print(f"Dropping halo {idx}: too few gas particles")
             df.drop(idx, inplace=True)
