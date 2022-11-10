@@ -14,17 +14,31 @@ h = TNGcosmo.h
 
 
 def get_gridded_quantities(
-    df, idx, sim_path, snap_num, grid_cen, quants, z, grid_size
+    df,
+    idx,
+    sim_path,
+    snap_num,
+    grid_cen,
+    quants,
+    z,
+    grid_size,
+    fixed_grid=True,
 ):
     gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
     wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
     _, stars = separate_wind_stars(wind_stars)
     box_gas, box_stars = create_particle_box(gas, df, idx, z, stars)
     utils.computeGasSmoothingLength(box_gas)
+
     dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
     box_size = df.loc[idx, "r"] * 4 / dist_to_cm * np.ones(3)
-    # Convert back to cm as the grid_size is given in cm
-    shape = np.ceil(box_size * dist_to_cm / grid_size).astype(np.int64)
+
+    if fixed_grid:
+        shape = (grid_size * np.ones(3)).astype(np.int64)
+        physical_grid_size = df.loc[idx, "r"] * 4 / grid_size
+    else:
+        shape = np.ceil(box_size * dist_to_cm / grid_size).astype(np.int64)
+
     grids = gridding.depositParticlesOnGrid(
         gas_parts=box_gas,
         method="sphKernelDep",
@@ -56,7 +70,13 @@ def get_gridded_quantities(
         grid_cen=grid_cen,
         n_threads=8,
     )
-    return grids, grid_sfr, grid_star
+    column_height = gridded_column_height(
+        mass_grid=grids["Masses"], radius=df.loc[idx, "r"]
+    )
+    if fixed_grid:
+        return grids, grid_sfr, grid_star, physical_grid_size, column_height
+    else:
+        return grids, grid_sfr, grid_star, 0, column_height
 
 
 def gridded_to_maps(grids, grid_sfr, grid_star):
@@ -73,13 +93,31 @@ def gridded_to_maps(grids, grid_sfr, grid_star):
     return maps
 
 
+def gridded_column_height(mass_grid, radius):
+    grid_size = mass_grid.shape[0]
+    center = grid_size // 2
+    ratio = 0
+    interval = 1 - 1 / np.e
+    grid_steps = 0
+    total_mass = np.sum(mass_grid)
+    while ratio < interval:
+        grid_steps += 1
+        enclosed_mass = np.sum(
+            mass_grid[:, :, center - grid_steps : center + grid_steps]
+        )
+        ratio = enclosed_mass / total_mass
+    column_height = 4 * radius / grid_size * grid_steps
+    return column_height
+
+
 def grid_halos(
     df_name,
     snap_num,
     grid_scale,
-    grid_sizes,
     hdf_name,
+    physical_grid_sizes=None,
     base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
+    testing=False,
 ):
 
     snap = get_snap(snap_num)
@@ -105,8 +143,23 @@ def grid_halos(
     quants = ["GFM_Metallicity"]
     grid_cen = np.zeros(3)
 
-    for idx, grid_size in zip(df.index, grid_sizes):
-        grids, grid_sfr, grid_star = get_gridded_quantities(
+    grid_sizes = []
+    column_heights = []
+    for i, idx in enumerate(df.index):
+        if physical_grid_sizes is None:
+            grid_size = grid_scale
+            fixed_grid = True
+        else:
+            grid_size = physical_grid_sizes[i]
+            fixed_grid = False
+
+        (
+            grids,
+            grid_sfr,
+            grid_star,
+            physical_grid_size,
+            column_height,
+        ) = get_gridded_quantities(
             df,
             idx,
             sim_path,
@@ -115,6 +168,22 @@ def grid_halos(
             quants,
             z,
             grid_size,
+            fixed_grid=fixed_grid,
         )
+
+        grid_sizes.append(physical_grid_size)
+        column_heights.append(column_height)
         maps = gridded_to_maps(grids, grid_sfr, grid_star)
         save_to_hdf(hdf5_file, idx, grid_scale, maps)
+
+    if testing:
+        grid_column_name = "Grid_cell_size_" + str(grid_scale)
+        height_column_name = "Column_height_" + str(grid_scale)
+    else:
+        grid_column_name = "Grid_cell_size"
+        height_column_name = "Column_height"
+    if physical_grid_sizes is None:
+        df[grid_column_name] = grid_sizes
+    df[height_column_name] = column_heights
+    df.to_pickle(df_path)
+    return
