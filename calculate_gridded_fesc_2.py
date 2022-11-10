@@ -33,7 +33,7 @@ def get_surface_dens(maps, grid_cell_size):
 # Units of ionizing flux are cm-2
 # Sigma_sfr needs to be converted to M_sum*yr-1*kpc-2
 def get_lum_from_sfr(maps):
-    sigma_sfr_to_ion_flux = 3e10
+    sigma_sfr_to_ion_flux = 5.58e10
     mean_phot_e_ion_spec = 20.4
     bolometric_correction = 5
     cm_to_kpc = (1 * u.cm).to(u.kpc).value
