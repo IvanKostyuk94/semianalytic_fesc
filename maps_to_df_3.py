@@ -12,7 +12,7 @@ def get_average_N_d(maps):
     return 1 / np.sum(1 / np.array(maps["N_d"]))
 
 
-def get_df_quantity(prop, hdf_file, df, index, scale):
+def get_df_quantity(prop, hdf_file, df, index, scale, testing=False):
     maps = hdf_file[scale][str(index)]
     flux_quantities = ["Ion_flux", "Bol_flux"]
     summed_quantities = [
@@ -38,9 +38,10 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     if prop in summed_quantities:
         quant = np.sum(maps[prop])
     elif prop in flux_quantities:
-        grid_column = "Grid_cell_size"
-        # This is only for convergence testing
-        # grid_column = f"Grid_cell_size_{scale}"
+        if testing:
+            grid_column = f"Grid_cell_size_{scale}"
+        else:
+            grid_column = "Grid_cell_size"
         grid_size = df.loc[index, grid_column]
         quant = np.sum(maps[prop]) * grid_size**2
     elif prop in average_quantities:
@@ -57,26 +58,29 @@ def get_df_quantity(prop, hdf_file, df, index, scale):
     else:
         return
     # The scale here is only for testing
-    # if prop in flux_quantities:
-    #     column_name = prop[:-4] + "em_" + str(scale)
-    # else:
-    #     column_name = prop + "_" + str(scale)
-    if prop in flux_quantities:
-        column_name = prop[:-4] + "em"
+    if testing:
+        if prop in flux_quantities:
+            column_name = prop[:-4] + "em_" + str(scale)
+        else:
+            column_name = prop + "_" + str(scale)
     else:
-        column_name = prop
+        if prop in flux_quantities:
+            column_name = prop[:-4] + "em"
+        else:
+            column_name = prop
     df.loc[index, column_name] = quant
     return
 
 
-def add_map_quantities(df, hdf_file, scale):
+def add_map_quantities(df, hdf_file, scale, testing=False):
     for prop in hdf_file[scale][str(df.index[0])].keys():
-        # for testing only
-        # column_name = prop + "_" + scale
-        column_name = scale
+        if testing:
+            column_name = prop + "_" + scale
+        else:
+            column_name = scale
         df[column_name] = np.nan
         for idx in df.index:
-            get_df_quantity(prop, hdf_file, df, idx, scale)
+            get_df_quantity(prop, hdf_file, df, idx, scale, testing=testing)
     return
 
 
@@ -87,6 +91,7 @@ def update_map_df(
     df_name,
     output_name=None,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
+    testing=False,
 ):
     if output_name is None:
         output_name = df_name
@@ -101,7 +106,7 @@ def update_map_df(
 
     hdf_file = h5py.File(hdf_path, "a")
     df = pd.read_pickle(origin_path)
-    add_map_quantities(df, hdf_file, str(scale))
+    add_map_quantities(df, hdf_file, str(scale), testing=testing)
 
     df.to_pickle(destination_path)
     hdf_file.close()

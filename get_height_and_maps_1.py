@@ -263,6 +263,7 @@ def update_df_columns(
     hdf5_file=None,
     adaptive=False,
     avg_dist_weighting=None,
+    testing=False,
 ):
     mass_to_g = (1 * u.Msun).to(u.g).value * 1e10 / h
 
@@ -327,12 +328,13 @@ def update_df_columns(
             sys.stdout.write(f"\r{counter/len(df)*100:.2f}% done")
             sys.stdout.flush()
 
-    # This is temporarily for testing different grid_sizes
-    # if adaptive:
-    #     grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
-    # else:
-    #     grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
-    grid_column_name = "Grid_cell_size"
+    if testing:
+        if adaptive:
+            grid_column_name = "Grid_cell_size_" + str(avg_dist_weighting)
+        else:
+            grid_column_name = "Grid_cell_size_" + str(approx_grid_size)
+    else:
+        grid_column_name = "Grid_cell_size"
     df["Column_height"] = np.array(scale_heights) * dist_to_cm(z)
     df["Gas_mass"] = np.array(gas_masses) * mass_to_g
     df["Star_mass"] = np.array(star_masses) * mass_to_g
@@ -351,6 +353,7 @@ def update_df_height_make_maps(
     base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
     avg_dist_weighting=None,
     approx_grid_size=None,
+    testing=False,
 ):
     snap = get_snap(snap_num)
     sim, sim_path = get_sim()
@@ -380,6 +383,7 @@ def update_df_height_make_maps(
         hdf5_file=hdf_file,
         adaptive=adaptive,
         avg_dist_weighting=avg_dist_weighting,
+        testing=testing,
     )
     if to_hdf:
         hdf_file.close()

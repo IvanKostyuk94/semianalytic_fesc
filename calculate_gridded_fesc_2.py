@@ -302,6 +302,7 @@ def update_maps(
     hdf_name,
     df_name,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
+    testing=False,
 ):
     snap = get_snap(snap_num)
     hdf_filename = hdf_name + ".hdf5"
@@ -317,9 +318,10 @@ def update_maps(
     for idx in df.index:
         galaxy_name = str(idx)
         galaxy_group = group[galaxy_name]
-        # For testing only
-        # grid_size_column = "Grid_cell_size_" + str(grid_size)
-        grid_size_column = "Grid_cell_size"
+        if testing:
+            grid_size_column = "Grid_cell_size_" + str(grid_size)
+        else:
+            grid_size_column = "Grid_cell_size"
         grid_cell_size = df.loc[idx, grid_size_column]
         scale_height = df.loc[idx, "Column_height"]
         update_to_fesc(
