@@ -28,6 +28,14 @@ def get_gridded_quantities(
     wind_stars = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "stars")
     _, stars = separate_wind_stars(wind_stars)
     box_gas, box_stars = create_particle_box(gas, df, idx, z, stars)
+    if box_gas == 0:
+        print(f"Dropping halo {idx}: too few gas particles")
+        df.drop(idx, inplace=True)
+        return 0, 0, 0, 0, 0
+    if box_gas["StarFormationRate"].sum() == 0:
+        print(f"Dropping halo {idx}: no star formation")
+        df.drop(idx, inplace=True)
+        return 0, 0, 0, 0, 0
     utils.computeGasSmoothingLength(box_gas)
 
     dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
@@ -39,6 +47,7 @@ def get_gridded_quantities(
     else:
         shape = np.ceil(box_size * dist_to_cm / grid_size).astype(np.int64)
 
+    n_threads = 40
     grids = gridding.depositParticlesOnGrid(
         gas_parts=box_gas,
         method="sphKernelDep",
@@ -47,7 +56,7 @@ def get_gridded_quantities(
         grid_shape=shape,
         grid_size=box_size,
         grid_cen=grid_cen,
-        n_threads=8,
+        n_threads=n_threads,
     )
     grid_sfr = gridding.depositParticlesOnGrid(
         gas_parts=box_gas,
@@ -57,7 +66,7 @@ def get_gridded_quantities(
         grid_shape=shape,
         grid_size=box_size,
         grid_cen=grid_cen,
-        n_threads=8,
+        n_threads=n_threads,
         mass_key="StarFormationRate",
     )
     grid_star = gridding.depositParticlesOnGrid(
@@ -68,7 +77,7 @@ def get_gridded_quantities(
         grid_shape=shape,
         grid_size=box_size,
         grid_cen=grid_cen,
-        n_threads=8,
+        n_threads=n_threads,
     )
     column_height = gridded_column_height(
         mass_grid=grids["Masses"], radius=df.loc[idx, "r"]
@@ -146,6 +155,10 @@ def grid_halos(
     grid_sizes = []
     column_heights = []
     for i, idx in enumerate(df.index):
+        # This is for batch runs not able to finish a full df in 24h
+        if "processed" in df.columns:
+            if df.loc[idx, "processed"]:
+                continue
         if physical_grid_sizes is None:
             grid_size = grid_scale
             fixed_grid = True
@@ -170,11 +183,13 @@ def grid_halos(
             grid_size,
             fixed_grid=fixed_grid,
         )
-
+        if grids == 0:
+            continue
         grid_sizes.append(physical_grid_size)
         column_heights.append(column_height)
         maps = gridded_to_maps(grids, grid_sfr, grid_star)
         save_to_hdf(hdf5_file, idx, grid_scale, maps)
+        df.loc[idx, "processed"] = True
 
     if testing:
         grid_column_name = "Grid_cell_size_" + str(grid_scale)
