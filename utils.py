@@ -26,14 +26,14 @@ def get_sim():
 def get_dataset_df(sim, snap_num):
     dataset = next(sim.group_cat[snap_num].chunk_generator("subhalo"))
     keys_needed = [
-        "SubhaloGasMetallicity",
-        "SubhaloGasMetallicityHalfRad",
+        # "SubhaloGasMetallicity",
+        # "SubhaloGasMetallicityHalfRad",
         "SubhaloHalfmassRadType",
-        "SubhaloMassInHalfRad",
-        "SubhaloMassInHalfRadType",
-        "SubhaloMassInRad",
+        # "SubhaloMassInHalfRad",
+        # "SubhaloMassInHalfRadType",
+        # "SubhaloMassInRad",
         "SubhaloMassInRadType",
-        "SubhaloSFRinHalfRad",
+        # "SubhaloSFRinHalfRad",
         "SubhaloSFRinRad",
         "SubhaloPos",
     ]
@@ -51,18 +51,19 @@ def reduce_df(df):
     reduced_df = df[filt]
 
     new_df = pd.DataFrame().assign(
-        Z_2r=reduced_df[("SubhaloGasMetallicity", 0)],
-        Z_r=reduced_df[("SubhaloGasMetallicityHalfRad", 0)],
+        # Z_2r=reduced_df[("SubhaloGasMetallicity", 0)],
+        # Z_r=reduced_df[("SubhaloGasMetallicityHalfRad", 0)],
         r=reduced_df[("SubhaloHalfmassRadType", 4)],
-        M_gas_r=reduced_df[("SubhaloMassInHalfRadType", 0)],
-        M_gas_2r=reduced_df[("SubhaloMassInRadType", 0)],
-        M_star_r=reduced_df[("SubhaloMassInHalfRadType", 4)],
-        M_star_2r=reduced_df[("SubhaloMassInRadType", 4)],
-        SFR_r=reduced_df[("SubhaloSFRinHalfRad", 0)],
-        SFR_2r=reduced_df[("SubhaloSFRinRad", 0)],
+        # M_gas_r=reduced_df[("SubhaloMassInHalfRadType", 0)],
+        # M_gas_2r=reduced_df[("SubhaloMassInRadType", 0)],
+        # M_star_r=reduced_df[("SubhaloMassInHalfRadType", 4)],
+        # M_star_2r=reduced_df[("SubhaloMassInRadType", 4)],
+        # SFR_r=reduced_df[("SubhaloSFRinHalfRad", 0)],
+        # SFR_2r=reduced_df[("SubhaloSFRinRad", 0)],
         Halo_pos_x=reduced_df[("SubhaloPos", 0)],
         Halo_pos_y=reduced_df[("SubhaloPos", 1)],
         Halo_pos_z=reduced_df[("SubhaloPos", 2)],
+        processed=np.zeros(len(reduced_df)).astype(np.bool8),
     )
     return new_df
 
