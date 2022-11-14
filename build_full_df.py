@@ -10,6 +10,7 @@ def merge_dfs(
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
     destination_path=None,
     name="full_df",
+    name_prefix_dfs=None,
 ):
     """
     Takes all individual dataframes for various snapshots and creates a
@@ -34,7 +35,10 @@ def merge_dfs(
         destination_path = os.path.join(base, name + ".pickle")
 
     for snap_num in range(snap_min, snap_max + 1):
-        df_name = "df_" + str(snap_num) + ".pickle"
+        if name_prefix_dfs is None:
+            df_name = "df_" + str(snap_num) + ".pickle"
+        else:
+            df_name = name_prefix_dfs + str(snap_num) + ".pickle"
         snap = get_snap(snap_num)
         sim, sim_path = get_sim()
         z = get_redshift(sim, snap_num)
