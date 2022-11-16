@@ -50,11 +50,14 @@ def merge_dfs(
             for key in df.columns:
                 df_dict[key] = list(df[key].copy())
             df_dict["z"] = list(np.ones(len(df)) * z)
+            df_dict["idx"] = list(df.index)
         else:
             for key in df.columns:
                 df_dict[key].extend(list(df[key].copy()))
             df_dict["z"].extend(np.ones(len(df)) * z)
+            df_dict["idx"].extend(df.index)
 
     full_df = pd.DataFrame.from_dict(df_dict)
+    full_df.drop(columns=["100", "processed"], inplace=True)
     full_df.to_pickle(destination_path)
     return
