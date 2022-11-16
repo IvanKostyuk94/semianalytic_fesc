@@ -7,6 +7,9 @@ from matplotlib import colormaps
 from astropy import units as u
 from scipy import stats
 import pandas as pd
+import h5py
+import os
+from utils import get_snap
 
 
 def plot_histogram(
@@ -1243,4 +1246,63 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
     ax.legend(fontsize=parameters["legendsize"])
     ax.set_xlim(5.5)
     ax.set_ylim(0, 0.2)
+    return
+
+
+def get_hdf(df, z, hdf_prefix):
+    all_z = df["z"].unique()
+    snap_num = int(np.where(all_z == z)[0])
+    base_path = "/ptmp/mpa/ivkos/semianalytic_fesc"
+    snap = get_snap(snap_num)
+    hdf_name = f"{hdf_prefix}{snap_num}.hdf5"
+    origin_path_hdf = os.path.join(base_path, snap, hdf_name)
+    f = h5py.File(origin_path_hdf)
+    return f
+
+
+def plot_prop_map(
+    df,
+    halo_num,
+    prop="f_esc",
+    log=False,
+    grid_size="100",
+    hdf_prefix="gridded_maps_",
+    params=None,
+):
+    halo_idx = df.loc[halo_num, "idx"]
+    halo_z = df.loc[halo_num, "z"]
+    hdf = get_hdf(df, halo_z, hdf_prefix)
+    image = hdf[grid_size][str(halo_idx)][prop]
+    print(hdf[grid_size][str(halo_idx)].keys())
+    if prop == "f_esc":
+        vmin, vmax = 0, 1
+    else:
+        vmin, vmax = None, None
+    if log:
+        # vmin, vmax = np.log10(vmin), np.log10(vmax)
+        image = np.log10(image)
+
+    parameters = plot_parameters(params)
+    figsize = (
+        parameters["width_per_image"],
+        parameters["height_per_image"],
+    )
+    fig, ax = plt.subplots(figsize=figsize)
+
+    subfig = ax.pcolormesh(
+        image, cmap=colormaps["inferno"], vmin=vmin, vmax=vmax
+    )
+
+    set_ax_params(ax, parameters)
+    if prop == "f_esc":
+        f_esc = df.loc[halo_num, "f_esc"]
+        ax.set_title(
+            rf"$f_\mathrm{{esc}} = ${f_esc:.2f}",
+            fontsize=parameters["titlesize"],
+        )
+    elif prop == "Ion_flux":
+        ax.set_title(r"$F_i$", fontsize=parameters["titlesize"])
+    create_color_bar(fig, ax, parameters, subfig)
+    ax.get_xaxis().set_visible(False)
+    ax.get_yaxis().set_visible(False)
     return
