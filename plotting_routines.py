@@ -697,6 +697,7 @@ def plot_parameters(params, multiple=False):
     parameters["legendsize"] = 30
 
     parameters["linewidth"] = 3
+    parameters["capsize"] = 10
 
     if params is not None:
         for element in params:
@@ -1064,6 +1065,10 @@ def log_count(prop):
     return np.log10(len(prop))
 
 
+def masked_mean(prop):
+    return np.mean(np.ma.masked_invalid(prop))
+
+
 def count_histogram(df, mass_bins=30, fesc_bins=30, params=None):
     parameters = plot_parameters(params)
     g_to_msun = (1 * u.g).to(u.M_sun)
@@ -1135,6 +1140,7 @@ def prop_prop_histogram(
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
+    df.dropna(subset="f_g_crit", inplace=True)
     x_values = df[prop_x]
     y_values = df[prop_y]
     if log_x:
@@ -1170,6 +1176,13 @@ def prop_prop_histogram(
             statistic="mean",
             bins=[x_edges, y_edges],
         )
+        hist, *_ = stats.binned_statistic_2d(
+            x_values,
+            y_values,
+            values=df["M_star_sun_log"],
+            statistic="mean",
+            bins=[x_edges, y_edges],
+        )
     hist_cont, xedges_cont, yedges_cont, _ = stats.binned_statistic_2d(
         x_values,
         y_values,
@@ -1180,26 +1193,32 @@ def prop_prop_histogram(
     cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
     cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
     x_grid, y_grid = np.meshgrid(x_edges, y_edges)
-    col_norm = colors.TwoSlopeNorm(vmin=0, vcenter=0.1, vmax=0.2)
-    # col_norm = colors.TwoSlopeNorm(vmin=0, vcenter=2.5, vmax=5)
+    vmin = 5.8
+    vcenter = 6.3
+    vmax = 7.0
+    col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
     )
     subfig = ax.pcolormesh(
         x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     )
-    levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
+    levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
     ax.contour(
         cont_centers_x,
         cont_centers_y,
         hist_cont.T,
         levels=levels,
-        linewidths=5,
-        linestyles=["dashed", "solid"],
-        colors="black",
+        linewidths=3,
+        linestyles=["dotted", "dashed", "solid"],
+        colors="blue",
     )
-    create_color_bar(f, ax, parameters, subfig, label=r"$f_\mathrm{esc}$")
-    # create_color_bar(f, ax, parameters, subfig, label=r"counts")
+    # bar_label = r"$\log(M_\star/M_\odot)$"
+    bar_label = r"$f_\mathrm{esc}$"
+    # bar_label = r"$f_{g,\mathrm{crit}}$"
+    # bar_label = "log(counts)"
+    create_color_bar(f, ax, parameters, subfig, label=bar_label)
+
     ax.set_xlabel(label_x, size=parameters["y_labelsize"])
     ax.set_ylabel(label_y, size=parameters["y_labelsize"])
     set_ax_params(ax, parameters)
@@ -1223,28 +1242,34 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
         Ion_em = df.groupby(["z", "mass_bins"])["Ion_em"].sum()
         f_esc_means = f_esc_weighted / Ion_em
     else:
-        f_esc_means = df.groupby(["z", "mass_bins"])["f_esc"].mean()
+        groups = df.groupby(["z", "mass_bins"])["f_esc"]
+        f_esc_means = groups.mean()
+        f_esc_std = groups.std()
+        f_esc_count = groups.count()
+        f_esc_err = f_esc_std / np.sqrt(f_esc_count)
 
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
     )
     for i, z in enumerate(z_values):
         if i % skip == 0:
-            ax.plot(
+            ax.errorbar(
                 x_centers,
                 f_esc_means[z],
+                yerr=f_esc_err[z],
                 label=f"z={z:.1f}",
+                capsize=parameters["capsize"],
                 linewidth=parameters["linewidth"],
             )
 
-    label_x = r"$\log(M_\star)[\log(M_\odot)]$"
-    label_y = r"$<f_\mathrm{esc}>$"
+    label_x = r"$\log(M_\star/M_\odot)$"
+    label_y = r"$\langle f_\mathrm{esc} \rangle$"
 
     ax.set_xlabel(label_x, size=parameters["y_labelsize"])
     ax.set_ylabel(label_y, size=parameters["y_labelsize"])
     set_ax_params(ax, parameters)
     ax.legend(fontsize=parameters["legendsize"])
-    ax.set_xlim(5.5)
+    ax.set_xlim(5.8)
     ax.set_ylim(0, 0.2)
     return
 
@@ -1302,6 +1327,11 @@ def plot_prop_map(
         )
     elif prop == "Ion_flux":
         ax.set_title(r"$F_i$", fontsize=parameters["titlesize"])
+    else:
+        if log:
+            ax.set_title(f"log({prop})", fontsize=parameters["titlesize"])
+        else:
+            ax.set_title(prop, fontsize=parameters["titlesize"])
     create_color_bar(fig, ax, parameters, subfig)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
