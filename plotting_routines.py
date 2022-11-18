@@ -651,8 +651,7 @@ def plot_hist_color(
 
 def plot_parameters(params, multiple=False):
     parameters = {}
-    parameters["x_labelsize"] = 50
-    parameters["y_labelsize"] = 50
+    parameters["labelsize"] = 50
 
     parameters["titlesize"] = 30
     parameters["length_major_ticks"] = 16
@@ -791,91 +790,6 @@ def plot_multiple_histograms(maps, params=None):
     return
 
 
-def get_convergence_maps(hdf, halo_idx, prop):
-    maps = {}
-    for key in hdf.keys():
-        if key == "None":
-            continue
-        maps[float(key)] = hdf[key][str(halo_idx)][prop]
-    return maps
-
-
-def trim_axes(axs, N):
-    axs = axs.flat
-    for ax in axs[N:]:
-        ax.remove()
-    return axs[:N]
-
-
-def get_range(maps):
-    low = []
-    high = []
-    for key in maps.keys():
-        low.append(np.min(maps[key]))
-        high.append(np.max(maps[key]))
-    return np.min(low), np.max(high)
-
-
-def plot_prop_maps(
-    df, hdf, halo_idx, skip=1, params=None, prop="f_esc", log=False, grid=False
-):
-    maps = get_convergence_maps(hdf, halo_idx, prop=prop)
-    maps = dict(sorted(maps.items()))
-    if prop == "f_esc":
-        vmin, vmax = 0, 1
-    else:
-        vmin, vmax = None, None
-    if log:
-        # vmin, vmax = np.log10(vmin), np.log10(vmax)
-        for key in maps.keys():
-            maps[key] = np.log10(maps[key])
-
-    parameters = plot_parameters(params, multiple=True)
-
-    image_columns = 4
-    image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
-    figsize = (
-        parameters["width_per_image"] * image_columns,
-        parameters["height_per_image"] * image_rows,
-    )
-    fig, axs = plt.subplots(
-        ncols=image_columns,
-        nrows=image_rows,
-        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
-        figsize=figsize,
-    )
-
-    counter = 0
-    for i, scale in enumerate(maps.keys()):
-        if i % skip == 0:
-            column = int(i // skip % image_columns)
-            row = int(i // skip // image_columns)
-            ax = axs[row, column]
-
-            subfig = ax.pcolormesh(
-                maps[scale], cmap=colormaps["inferno"], vmin=vmin, vmax=vmax
-            )
-
-            set_ax_params(ax, parameters)
-            if prop == "f_esc":
-                f_esc = df.loc[halo_idx, f"f_esc_{int(scale)}"]
-                ax.set_title(
-                    rf"$\lambda = ${scale:.2f}, $f_\mathrm{{esc}} = ${f_esc:.2f}",
-                    fontsize=parameters["titlesize"],
-                )
-            elif prop == "Ion_flux":
-                ax.set_title(
-                    rf"$\lambda = ${scale:.2f}: $F_i$",
-                    fontsize=parameters["titlesize"],
-                )
-            create_color_bar(fig, ax, parameters, subfig)
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-            counter += 1
-    trim_axes(axs, counter)
-    return
-
-
 def get_quantity_array(df, prop, scales):
     prop_dict = {}
     for idx in df.index:
@@ -938,10 +852,10 @@ def plot_convergence(df, prop="f_esc", params=None, log=True, weights=None):
             label=label_mean_weighted,
         )
     ax.set_xlabel(
-        parameters["x_label_convergence"], size=parameters["y_labelsize"]
+        parameters["x_label_convergence"], size=parameters["labelsize"]
     )
     ax.set_ylabel(
-        parameters["y_label_convergence"], size=parameters["y_labelsize"]
+        parameters["y_label_convergence"], size=parameters["labelsize"]
     )
     set_ax_params(ax, parameters)
 
@@ -974,91 +888,29 @@ def log_mean(quant):
     return np.log10(np.mean(quant))
 
 
-def get_levels(hist_cont, thresholds):
-    levels = []
-    counts = np.sort(hist_cont.flatten())[::-1]
-    value_thresholds = counts.sum() * np.array(thresholds)
-    for threshold in value_thresholds:
-        count_sum = 0
-        i = 0
-        while count_sum < threshold:
-            count_sum += counts[i]
-            i += 1
-        levels.append(counts[i])
-    return levels
-
-
-def fesc_histogram(df, em_weighted=False, mass_bins=30, params=None):
-    parameters = plot_parameters(params)
-    g_to_msun = (1 * u.g).to(u.M_sun)
-    df.dropna(subset="f_esc", inplace=True)
-    df["M_star_sun_log"] = np.log10(df["M_star"] * g_to_msun)
-    x_values = df["z"]
-    y_values = df["M_star_sun_log"]
-
-    x_edges = get_z_edges(df)[::-1]
-    y_edges = np.linspace(y_values.min(), y_values.max(), mass_bins)
-
-    if em_weighted:
-        df["f_esc_weighted"] = df["f_esc"] * df["Ion_em"]
-        hist_esc, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["f_esc_weighted"],
-            statistic="sum",
-            bins=[x_edges, y_edges],
-        )
-        hist_em, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["Ion_em"],
-            statistic="sum",
-            bins=[x_edges, y_edges],
-        )
-        hist = hist_esc / hist_em
+def get_label(prop):
+    prop_labels = {
+        "M_gas_sun_log": r"$\log \left(\frac{M_\mathrm{gas}}{M_\odot} \right)$",
+        "M_star_sun_log": r"$\log \left(\frac{M_\mathrm{star}}{M_\odot} \right)$",
+        "SFR": r"$\log \left( \frac{\Sigma_\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)$",
+        "f_g": r"$f_g$",
+        "f_g_crit": r"$f_{g, \mathrm{crit}}$",
+        "Column_height": r"$\log(H/\mathrm{cm})$",
+        "Columns_dens": r"$\log \left(\frac{N_0}{cm^{-2}} \right)$",
+        "Columns_dens_stroemgren": r"$\log \left(\frac{N_S}{cm^{-2}} \right)$",
+        "Metallicity": r"$\log(Z)$",
+        "U": r"$\log(U)$",
+        "N_d": r"$N_d$",
+        "N_ratio": r"\mathcal{N}",
+        "z": "z",
+        "f_esc": r"$f_\mathrm{esc}$",
+        "n_gas": r"$log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)",
+        "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
+    }
+    if prop in prop_labels:
+        return prop_labels[prop]
     else:
-        hist, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["f_esc"],
-            statistic="mean",
-            bins=[x_edges, y_edges],
-        )
-    hist_cont, xedges_cont, yedges_cont, _ = stats.binned_statistic_2d(
-        x_values,
-        y_values,
-        values=df["f_esc"],
-        statistic="count",
-        bins=[x_edges, y_edges],
-    )
-    cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
-    cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
-    x_grid, y_grid = np.meshgrid(x_edges, y_edges)
-    col_norm = colors.TwoSlopeNorm(vmin=0, vcenter=0.1, vmax=0.2)
-    f, ax = plt.subplots(
-        figsize=[parameters["figure_width"], parameters["figure_height"]]
-    )
-    subfig = ax.pcolormesh(
-        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
-    )
-    levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
-    ax.contour(
-        cont_centers_x,
-        cont_centers_y,
-        hist_cont.T,
-        levels=levels,
-        linewidths=5,
-        linestyles=["dashed", "solid"],
-        colors="black",
-    )
-    create_color_bar(f, ax, parameters, subfig, label=r"$f_\mathrm{esc}$")
-    ax.set_xlabel("z", size=parameters["y_labelsize"])
-    ax.set_ylabel(
-        r"$\log(M_\star)[\log(M_\odot)]$", size=parameters["y_labelsize"]
-    )
-    set_ax_params(ax, parameters)
-
-    return
+        return None
 
 
 def log_count(prop):
@@ -1069,78 +921,98 @@ def masked_mean(prop):
     return np.mean(np.ma.masked_invalid(prop))
 
 
-def count_histogram(df, mass_bins=30, fesc_bins=30, params=None):
-    parameters = plot_parameters(params)
-    g_to_msun = (1 * u.g).to(u.M_sun)
-    df.dropna(subset="f_esc", inplace=True)
-    df["M_star_sun_log"] = np.log10(df["M_star"] * g_to_msun)
-    x_values = df["M_star_sun_log"]
-    y_values = df["f_esc"]
+def get_histogram(
+    df,
+    x_values,
+    y_values,
+    bins,
+    color_prop="f_esc",
+    em_weighted=False,
+    statistic="mean",
+):
+    if em_weighted:
+        df["weighted"] = df[color_prop] * df["Ion_em"]
+        hist_esc, *_ = stats.binned_statistic_2d(
+            x_values,
+            y_values,
+            values=df["weighted"],
+            statistic="sum",
+            bins=bins,
+        )
+        hist_em, *_ = stats.binned_statistic_2d(
+            x_values,
+            y_values,
+            values=df["Ion_em"],
+            statistic="sum",
+            bins=bins,
+        )
+        hist = hist_esc / hist_em
+    else:
+        hist, *_ = stats.binned_statistic_2d(
+            x_values,
+            y_values,
+            values=df[color_prop],
+            statistic=statistic,
+            bins=bins,
+        )
 
-    x_edges = np.linspace(x_values.min(), x_values.max(), fesc_bins)
-    y_edges = np.linspace(y_values.min(), y_values.max(), mass_bins)
-
-    hist, *_ = stats.binned_statistic_2d(
-        x_values,
-        y_values,
-        values=df["f_esc"],
-        statistic=log_count,
-        bins=[x_edges, y_edges],
-    )
     hist_cont, xedges_cont, yedges_cont, _ = stats.binned_statistic_2d(
         x_values,
         y_values,
-        values=df["f_esc"],
+        values=df[color_prop],
         statistic="count",
-        bins=[x_edges, y_edges],
+        bins=bins,
     )
-    cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
-    cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
 
-    x_grid, y_grid = np.meshgrid(x_edges, y_edges)
-    col_norm = colors.TwoSlopeNorm(vmin=0, vcenter=2.5, vmax=5)
-    f, ax = plt.subplots(
-        figsize=[parameters["figure_width"], parameters["figure_height"]]
-    )
-    subfig = ax.pcolormesh(
-        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
-    )
-    levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
-    ax.contour(
-        cont_centers_x,
-        cont_centers_y,
-        hist_cont.T,
-        levels=levels,
-        linewidths=5,
-        linestyles=["dashed", "solid"],
-        colors="black",
-    )
-    create_color_bar(f, ax, parameters, subfig, label=r"log(counts)")
-    ax.set_ylabel(r"$f_\mathrm{esc}$", size=parameters["y_labelsize"])
-    ax.set_xlabel(
-        r"$\log(M_\star)[\log(M_\odot)]$", size=parameters["y_labelsize"]
-    )
-    set_ax_params(ax, parameters)
+    if statistic == "count":
+        hist = np.log10(hist)
+    return hist, hist_cont, xedges_cont, yedges_cont
 
-    return
+
+def get_color_limits(prop, statistic="mean", maps=False):
+    limits = {
+        "f_esc": (0.0, 0.1, 0.2),
+        "f_g_crit": (0.0, 0.5, 1.0),
+        "M_star_sun_log": (5.8, 8, 10),
+    }
+    limits_maps = {
+        "f_esc": (0.0, 0.5, 1.0),
+        "f_g_crit": (0.0, 0.5, 1.0),
+    }
+    if maps:
+        if prop in limits_maps:
+            return limits_maps[prop]
+        else:
+            return (None, None, None)
+    else:
+        if statistic == "count":
+            return (0, 2.5, 5)
+        elif prop in limits:
+            return limits[prop]
+        else:
+            return (None, None, None)
 
 
 def prop_prop_histogram(
     df,
     prop_x,
     prop_y,
+    color_prop="f_esc",
+    statistic="mean",
     em_weighted=False,
     log_x=True,
     log_y=True,
     bins_x=30,
     bins_y=30,
-    label_x=None,
-    label_y=None,
     params=None,
 ):
     parameters = plot_parameters(params)
+
+    # Clean df
     df.dropna(subset="f_esc", inplace=True)
     df.dropna(subset="f_g_crit", inplace=True)
+    df.drop(df[df["M_star_sun_log"] < 5.55].index, inplace=True)
+
     x_values = df[prop_x]
     y_values = df[prop_y]
     if log_x:
@@ -1148,54 +1020,29 @@ def prop_prop_histogram(
     if log_y:
         y_values = np.ma.masked_invalid(np.log10(y_values))
 
-    x_edges = np.linspace(x_values.min(), x_values.max(), bins_x)
+    if prop_x == "z":
+        x_edges = get_z_edges(df)[::-1]
+    else:
+        x_edges = np.linspace(x_values.min(), x_values.max(), bins_x)
     y_edges = np.linspace(y_values.min(), y_values.max(), bins_y)
 
-    if em_weighted:
-        df["f_esc_weighted"] = df["f_esc"] * df["Ion_em"]
-        hist_esc, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["f_esc_weighted"],
-            statistic="sum",
-            bins=[x_edges, y_edges],
-        )
-        hist_em, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["Ion_em"],
-            statistic="sum",
-            bins=[x_edges, y_edges],
-        )
-        hist = hist_esc / hist_em
-    else:
-        hist, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["f_esc"],
-            statistic="mean",
-            bins=[x_edges, y_edges],
-        )
-        hist, *_ = stats.binned_statistic_2d(
-            x_values,
-            y_values,
-            values=df["M_star_sun_log"],
-            statistic="mean",
-            bins=[x_edges, y_edges],
-        )
-    hist_cont, xedges_cont, yedges_cont, _ = stats.binned_statistic_2d(
+    hist, hist_cont, xedges_cont, yedges_cont = get_histogram(
+        df,
         x_values,
         y_values,
-        values=df["f_esc"],
-        statistic="count",
         bins=[x_edges, y_edges],
+        color_prop=color_prop,
+        em_weighted=em_weighted,
+        statistic=statistic,
     )
-    cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
+    if prop_x == "z":
+        x_edges = np.arange(len(x_edges))
+        cont_centers_x = np.arange(len(xedges_cont) - 1)
+    else:
+        cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
     cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
     x_grid, y_grid = np.meshgrid(x_edges, y_edges)
-    vmin = 5.8
-    vcenter = 6.3
-    vmax = 7.0
+    vmin, vcenter, vmax = get_color_limits(color_prop, statistic)
     col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
@@ -1213,14 +1060,20 @@ def prop_prop_histogram(
         linestyles=["dotted", "dashed", "solid"],
         colors="blue",
     )
-    # bar_label = r"$\log(M_\star/M_\odot)$"
-    bar_label = r"$f_\mathrm{esc}$"
-    # bar_label = r"$f_{g,\mathrm{crit}}$"
-    # bar_label = "log(counts)"
-    create_color_bar(f, ax, parameters, subfig, label=bar_label)
 
-    ax.set_xlabel(label_x, size=parameters["y_labelsize"])
-    ax.set_ylabel(label_y, size=parameters["y_labelsize"])
+    if statistic == "count":
+        color_label = r"$\log(counts)$"
+    else:
+        color_label = get_label(color_prop)
+    create_color_bar(f, ax, parameters, subfig, label=color_label)
+
+    if prop_x == "z":
+        labels = [f"{x:.1f}" for x in df.z.unique()[::-1]]
+        ax.set_xticks(np.arange(len(x_edges) - 1)[::2] + 0.5)
+        ax.set_xticklabels(labels[::2])
+
+    ax.set_xlabel(get_label(prop_x), size=parameters["labelsize"])
+    ax.set_ylabel(get_label(prop_y), size=parameters["labelsize"])
     set_ax_params(ax, parameters)
     return
 
@@ -1262,11 +1115,11 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
                 linewidth=parameters["linewidth"],
             )
 
-    label_x = r"$\log(M_\star/M_\odot)$"
+    label_x = get_label("M_star_sun_log")
     label_y = r"$\langle f_\mathrm{esc} \rangle$"
 
-    ax.set_xlabel(label_x, size=parameters["y_labelsize"])
-    ax.set_ylabel(label_y, size=parameters["y_labelsize"])
+    ax.set_xlabel(label_x, size=parameters["labelsize"])
+    ax.set_ylabel(label_y, size=parameters["labelsize"])
     set_ax_params(ax, parameters)
     ax.legend(fontsize=parameters["legendsize"])
     ax.set_xlim(5.8)
@@ -1283,6 +1136,101 @@ def get_hdf(df, z, hdf_prefix):
     origin_path_hdf = os.path.join(base_path, snap, hdf_name)
     f = h5py.File(origin_path_hdf)
     return f
+
+
+def get_convergence_maps(hdf, halo_idx, prop):
+    maps = {}
+    for key in hdf.keys():
+        if key == "None":
+            continue
+        maps[float(key)] = hdf[key][str(halo_idx)][prop]
+    return maps
+
+
+def trim_axes(axs, N):
+    axs = axs.flat
+    for ax in axs[N:]:
+        ax.remove()
+    return axs[:N]
+
+
+def get_range(maps):
+    low = []
+    high = []
+    for key in maps.keys():
+        low.append(np.min(maps[key]))
+        high.append(np.max(maps[key]))
+    return np.min(low), np.max(high)
+
+
+def plot_prop_maps(
+    df,
+    halo_idx,
+    hdf=None,
+    hdf_prefix="gridded_maps_",
+    grid_size="100",
+    type="single_halo",
+    skip=1,
+    params=None,
+    prop="f_esc",
+    log=False,
+):
+    if type == "convergence":
+        maps = get_convergence_maps(hdf, halo_idx, prop=prop)
+        maps = dict(sorted(maps.items()))
+    if prop == "f_esc":
+        vmin, vmax = 0, 1
+    else:
+        vmin, vmax = None, None
+    if log:
+        # vmin, vmax = np.log10(vmin), np.log10(vmax)
+        for key in maps.keys():
+            maps[key] = np.log10(maps[key])
+
+    parameters = plot_parameters(params, multiple=True)
+
+    image_columns = 4
+    image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
+    figsize = (
+        parameters["width_per_image"] * image_columns,
+        parameters["height_per_image"] * image_rows,
+    )
+    fig, axs = plt.subplots(
+        ncols=image_columns,
+        nrows=image_rows,
+        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
+        figsize=figsize,
+    )
+
+    counter = 0
+    for i, scale in enumerate(maps.keys()):
+        if i % skip == 0:
+            column = int(i // skip % image_columns)
+            row = int(i // skip // image_columns)
+            ax = axs[row, column]
+
+            subfig = ax.pcolormesh(
+                maps[scale], cmap=colormaps["inferno"], vmin=vmin, vmax=vmax
+            )
+
+            set_ax_params(ax, parameters)
+            if prop == "f_esc":
+                f_esc = df.loc[halo_idx, f"f_esc_{int(scale)}"]
+                ax.set_title(
+                    rf"$\lambda = ${scale:.2f}, $f_\mathrm{{esc}} = ${f_esc:.2f}",
+                    fontsize=parameters["titlesize"],
+                )
+            elif prop == "Ion_flux":
+                ax.set_title(
+                    rf"$\lambda = ${scale:.2f}: $F_i$",
+                    fontsize=parameters["titlesize"],
+                )
+            create_color_bar(fig, ax, parameters, subfig)
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            counter += 1
+    trim_axes(axs, counter)
+    return
 
 
 def plot_prop_map(
