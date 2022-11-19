@@ -654,14 +654,16 @@ def plot_parameters(params, multiple=False):
     parameters["labelsize"] = 50
 
     parameters["titlesize"] = 30
+    parameters["multiple_titlesize"] = 15
     parameters["length_major_ticks"] = 16
     parameters["length_minor_ticks"] = 8
     parameters["width_minor_ticks"] = 3
     parameters["width_major_ticks"] = 4
     parameters["labelsize_ticks"] = 35
 
-    parameters["colorbar_labelsize"] = 50
-    parameters["colorbar_ticklabelsize"] = 35
+    parameters["colorbar_labelsize"] = 30
+    parameters["colorbar_ticklabelsize_multiple"] = 10
+    parameters["colorbar_ticklabelsize"] = 20
 
     parameters["axes_width"] = 3
 
@@ -715,7 +717,7 @@ def get_col_norm(parameters):
     return col_norm
 
 
-def set_ax_params(ax, parameters):
+def set_ax_params(ax, parameters, multiple=False):
     # ax.set_xlabel(parameters["x_label"], size=parameters["x_labelsize"])
     # ax.set_ylabel(parameters["y_label"], size=parameters["y_labelsize"])
 
@@ -731,9 +733,18 @@ def set_ax_params(ax, parameters):
         width=parameters["width_minor_ticks"],
         which="minor",
     )
-    ax.tick_params(
-        axis="both", which="both", labelsize=parameters["labelsize_ticks"]
-    )
+    if multiple:
+        ax.tick_params(
+            axis="both",
+            which="both",
+            labelsize=parameters["colorbar_ticklabelsize_multiple"],
+        )
+    else:
+        ax.tick_params(
+            axis="both",
+            which="both",
+            labelsize=parameters["colorbar_ticklabelsize"],
+        )
 
     # change all spines
     for axis in ["top", "bottom", "left", "right"]:
@@ -892,7 +903,7 @@ def get_label(prop):
     prop_labels = {
         "M_gas_sun_log": r"$\log \left(\frac{M_\mathrm{gas}}{M_\odot} \right)$",
         "M_star_sun_log": r"$\log \left(\frac{M_\mathrm{star}}{M_\odot} \right)$",
-        "SFR": r"$\log \left( \frac{\Sigma_\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)$",
+        "SFR": r"$\log \left( \frac{\Sigma_\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1}} \right)$",
         "f_g": r"$f_g$",
         "f_g_crit": r"$f_{g, \mathrm{crit}}$",
         "Column_height": r"$\log(H/\mathrm{cm})$",
@@ -978,6 +989,7 @@ def get_color_limits(prop, statistic="mean", maps=False):
     limits_maps = {
         "f_esc": (0.0, 0.5, 1.0),
         "f_g_crit": (0.0, 0.5, 1.0),
+        "SFR": (-8, -6, -4),
     }
     if maps:
         if prop in limits_maps:
@@ -1062,7 +1074,7 @@ def prop_prop_histogram(
     )
 
     if statistic == "count":
-        color_label = r"$\log(counts)$"
+        color_label = r"$\log(\mathrm{counts})$"
     else:
         color_label = get_label(color_prop)
     create_color_bar(f, ax, parameters, subfig, label=color_label)
@@ -1163,9 +1175,54 @@ def get_range(maps):
     return np.min(low), np.max(high)
 
 
+def get_image(df, halo_num, hdf_prefix, prop, grid_size):
+    halo_idx = df.loc[halo_num, "idx"]
+    halo_z = df.loc[halo_num, "z"]
+    hdf = get_hdf(df, halo_z, hdf_prefix)
+    image = hdf[grid_size][str(halo_idx)][prop]
+    return image
+
+
+def get_map_sample(df, prop, hdf_prefix, grid_size, n, halo_nums):
+    sample = df.sample(n)
+    maps = {}
+    if halo_nums is None:
+        for num in sample.index:
+            maps[num] = get_image(df, num, hdf_prefix, prop, grid_size)
+    else:
+        for num in halo_nums:
+            maps[num] = get_image(df, num, hdf_prefix, prop, grid_size)
+    return maps
+
+
+def set_title(
+    df, type, prop, halo_num, ax, scale, props_of_interest, parameters
+):
+    if type == "convergence":
+        if prop == "f_esc":
+            f_esc = df.loc[halo_num, f"f_esc_{int(scale)}"]
+            ax.set_title(
+                rf"$\lambda = ${scale:.2f}, $f_\mathrm{{esc}} = ${f_esc:.2f}",
+                fontsize=parameters["titlesize"],
+            )
+        elif prop == "Ion_flux":
+            ax.set_title(
+                rf"$\lambda = ${scale:.2f}: $F_i$",
+                fontsize=parameters["titlesize"],
+            )
+    if type == "sample":
+        title = ""
+        for new_prop in props_of_interest:
+            label = get_label(new_prop)
+            value = df.loc[halo_num, new_prop]
+            title += f"{label} = {value:.1E} \n"
+        ax.set_title(title, fontsize=parameters["multiple_titlesize"])
+    return
+
+
 def plot_prop_maps(
     df,
-    halo_idx,
+    halo_num=None,
     hdf=None,
     hdf_prefix="gridded_maps_",
     grid_size="100",
@@ -1174,113 +1231,82 @@ def plot_prop_maps(
     params=None,
     prop="f_esc",
     log=False,
+    props_of_interest=["f_esc"],
+    n_maps=16,
 ):
     if type == "convergence":
-        maps = get_convergence_maps(hdf, halo_idx, prop=prop)
+        maps = get_convergence_maps(hdf, halo_num, prop=prop)
         maps = dict(sorted(maps.items()))
-    if prop == "f_esc":
-        vmin, vmax = 0, 1
-    else:
-        vmin, vmax = None, None
+
+    if type == "sample":
+        maps = get_map_sample(
+            df, prop, hdf_prefix, grid_size, n=n_maps, halo_nums=halo_num
+        )
+
+    if type == "single_halo":
+        maps[halo_num] = get_image(df, halo_num, hdf_prefix, prop, grid_size)
+
+    vmin, vcenter, vmax = get_color_limits(prop, maps=True)
+
     if log:
-        # vmin, vmax = np.log10(vmin), np.log10(vmax)
         for key in maps.keys():
             maps[key] = np.log10(maps[key])
 
     parameters = plot_parameters(params, multiple=True)
 
-    image_columns = 4
-    image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
-    figsize = (
-        parameters["width_per_image"] * image_columns,
-        parameters["height_per_image"] * image_rows,
-    )
-    fig, axs = plt.subplots(
-        ncols=image_columns,
-        nrows=image_rows,
-        gridspec_kw={"hspace": 0.2, "wspace": 0.2},
-        figsize=figsize,
-    )
-
-    counter = 0
-    for i, scale in enumerate(maps.keys()):
-        if i % skip == 0:
-            column = int(i // skip % image_columns)
-            row = int(i // skip // image_columns)
-            ax = axs[row, column]
-
-            subfig = ax.pcolormesh(
-                maps[scale], cmap=colormaps["inferno"], vmin=vmin, vmax=vmax
-            )
-
-            set_ax_params(ax, parameters)
-            if prop == "f_esc":
-                f_esc = df.loc[halo_idx, f"f_esc_{int(scale)}"]
-                ax.set_title(
-                    rf"$\lambda = ${scale:.2f}, $f_\mathrm{{esc}} = ${f_esc:.2f}",
-                    fontsize=parameters["titlesize"],
-                )
-            elif prop == "Ion_flux":
-                ax.set_title(
-                    rf"$\lambda = ${scale:.2f}: $F_i$",
-                    fontsize=parameters["titlesize"],
-                )
-            create_color_bar(fig, ax, parameters, subfig)
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
-            counter += 1
-    trim_axes(axs, counter)
-    return
-
-
-def plot_prop_map(
-    df,
-    halo_num,
-    prop="f_esc",
-    log=False,
-    grid_size="100",
-    hdf_prefix="gridded_maps_",
-    params=None,
-):
-    halo_idx = df.loc[halo_num, "idx"]
-    halo_z = df.loc[halo_num, "z"]
-    hdf = get_hdf(df, halo_z, hdf_prefix)
-    image = hdf[grid_size][str(halo_idx)][prop]
-    print(hdf[grid_size][str(halo_idx)].keys())
-    if prop == "f_esc":
-        vmin, vmax = 0, 1
-    else:
-        vmin, vmax = None, None
-    if log:
-        # vmin, vmax = np.log10(vmin), np.log10(vmax)
-        image = np.log10(image)
-
-    parameters = plot_parameters(params)
-    figsize = (
-        parameters["width_per_image"],
-        parameters["height_per_image"],
-    )
-    fig, ax = plt.subplots(figsize=figsize)
-
-    subfig = ax.pcolormesh(
-        image, cmap=colormaps["inferno"], vmin=vmin, vmax=vmax
-    )
-
-    set_ax_params(ax, parameters)
-    if prop == "f_esc":
-        f_esc = df.loc[halo_num, "f_esc"]
-        ax.set_title(
-            rf"$f_\mathrm{{esc}} = ${f_esc:.2f}",
-            fontsize=parameters["titlesize"],
+    if type == "single_halo":
+        figsize = (
+            parameters["width_per_image"],
+            parameters["height_per_image"],
         )
-    elif prop == "Ion_flux":
-        ax.set_title(r"$F_i$", fontsize=parameters["titlesize"])
+        fig, ax = plt.subplots(figsize=figsize)
     else:
-        if log:
-            ax.set_title(f"log({prop})", fontsize=parameters["titlesize"])
-        else:
-            ax.set_title(prop, fontsize=parameters["titlesize"])
-    create_color_bar(fig, ax, parameters, subfig)
-    ax.get_xaxis().set_visible(False)
-    ax.get_yaxis().set_visible(False)
+        image_columns = 3
+        image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
+        figsize = (
+            parameters["width_per_image"] * image_columns,
+            parameters["height_per_image"] * image_rows,
+        )
+        fig, axs = plt.subplots(
+            ncols=image_columns,
+            nrows=image_rows,
+            gridspec_kw={
+                "hspace": 0.2 * len(props_of_interest),
+                "wspace": 0.2 * len(props_of_interest),
+            },
+            figsize=figsize,
+        )
+        counter = 0
+        for i, scale in enumerate(maps.keys()):
+            if i % skip == 0:
+                if type != "single_halo":
+                    column = int(i // skip % image_columns)
+                    row = int(i // skip // image_columns)
+                    ax = axs[row, column]
+
+                subfig = ax.pcolormesh(
+                    maps[scale],
+                    cmap=colormaps["inferno"],
+                    vmin=vmin,
+                    vmax=vmax,
+                )
+
+                set_ax_params(ax, parameters, multiple=True)
+                set_title(
+                    df,
+                    type,
+                    prop,
+                    scale,
+                    ax,
+                    scale,
+                    props_of_interest,
+                    parameters,
+                )
+                create_color_bar(
+                    fig, ax, parameters, subfig, label=get_label(prop)
+                )
+                ax.get_xaxis().set_visible(False)
+                ax.get_yaxis().set_visible(False)
+                counter += 1
+        trim_axes(axs, counter)
     return
