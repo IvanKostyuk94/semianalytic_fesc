@@ -661,9 +661,10 @@ def plot_parameters(params, multiple=False):
     parameters["width_major_ticks"] = 4
     parameters["labelsize_ticks"] = 35
 
-    parameters["colorbar_labelsize"] = 30
+    parameters["colorbar_labelsize"] = 50
+    parameters["colorbar_ticklabelsize"] = 30
+    parameters["colorbar_labelsize_multiple"] = 30
     parameters["colorbar_ticklabelsize_multiple"] = 10
-    parameters["colorbar_ticklabelsize"] = 20
 
     parameters["axes_width"] = 3
 
@@ -752,7 +753,7 @@ def set_ax_params(ax, parameters, multiple=False):
     return
 
 
-def create_color_bar(f, ax, parameters, subfig, label=None):
+def create_color_bar(f, ax, parameters, subfig, label=None, multiple=False):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.15)
     cbar = f.colorbar(subfig, cax=cax)
@@ -903,7 +904,7 @@ def get_label(prop):
     prop_labels = {
         "M_gas_sun_log": r"$\log \left(\frac{M_\mathrm{gas}}{M_\odot} \right)$",
         "M_star_sun_log": r"$\log \left(\frac{M_\mathrm{star}}{M_\odot} \right)$",
-        "SFR": r"$\log \left( \frac{\Sigma_\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1}} \right)$",
+        "SFR": r"$\log \left( \frac{\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1}} \right)$",
         "f_g": r"$f_g$",
         "f_g_crit": r"$f_{g, \mathrm{crit}}$",
         "Column_height": r"$\log(H/\mathrm{cm})$",
@@ -915,7 +916,7 @@ def get_label(prop):
         "N_ratio": r"\mathcal{N}",
         "z": "z",
         "f_esc": r"$f_\mathrm{esc}$",
-        "n_gas": r"$log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)",
+        "n_gas": r"$\log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)$",
         "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
     }
     if prop in prop_labels:
@@ -1103,9 +1104,11 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
     z_values = df["z"].unique()[::-1]
     if em_weighted:
         df["f_esc_weighted"] = df["f_esc"] * df["Ion_em"]
-        f_esc_weighted = df.groupby(["z", "mass_bins"])["f_esc"].sum()
+        f_esc_weighted = df.groupby(["z", "mass_bins"])["f_esc_weighted"].sum()
         Ion_em = df.groupby(["z", "mass_bins"])["Ion_em"].sum()
         f_esc_means = f_esc_weighted / Ion_em
+        print(f_esc_weighted)
+        print(Ion_em)
     else:
         groups = df.groupby(["z", "mass_bins"])["f_esc"]
         f_esc_means = groups.mean()
@@ -1118,14 +1121,23 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
     )
     for i, z in enumerate(z_values):
         if i % skip == 0:
-            ax.errorbar(
-                x_centers,
-                f_esc_means[z],
-                yerr=f_esc_err[z],
-                label=f"z={z:.1f}",
-                capsize=parameters["capsize"],
-                linewidth=parameters["linewidth"],
-            )
+            if em_weighted:
+                ax.plot(
+                    x_centers,
+                    f_esc_means[z],
+                    label=f"z={z:.1f}",
+                    linewidth=parameters["linewidth"],
+                )
+
+            else:
+                ax.errorbar(
+                    x_centers,
+                    f_esc_means[z],
+                    yerr=f_esc_err[z],
+                    label=f"z={z:.1f}",
+                    capsize=parameters["capsize"],
+                    linewidth=parameters["linewidth"],
+                )
 
     label_x = get_label("M_star_sun_log")
     label_y = r"$\langle f_\mathrm{esc} \rangle$"
