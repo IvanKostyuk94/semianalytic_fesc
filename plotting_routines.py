@@ -758,8 +758,17 @@ def create_color_bar(f, ax, parameters, subfig, label=None, multiple=False):
     cax = divider.append_axes("right", size="5%", pad=0.15)
     cbar = f.colorbar(subfig, cax=cax)
     if label is not None:
-        cbar.set_label(label, size=parameters["colorbar_labelsize"])
-    cbar.ax.tick_params(labelsize=parameters["colorbar_ticklabelsize"])
+        if multiple:
+            size = parameters["colorbar_labelsize_multiple"]
+        else:
+            size = parameters["colorbar_labelsize"]
+        cbar.set_label(label, size=size)
+
+    if multiple:
+        ticksize = parameters["colorbar_ticklabelsize_multiple"]
+    else:
+        ticksize = parameters["colorbar_ticklabelsize"]
+    cbar.ax.tick_params(labelsize=ticksize)
     return
 
 
@@ -913,11 +922,12 @@ def get_label(prop):
         "Metallicity": r"$\log(Z)$",
         "U": r"$\log(U)$",
         "N_d": r"$N_d$",
-        "N_ratio": r"\mathcal{N}",
+        "N_ratio": r"$\mathcal{N}$",
         "z": "z",
         "f_esc": r"$f_\mathrm{esc}$",
         "n_gas": r"$\log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)$",
         "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
+        "U1": r"$U_1$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -983,7 +993,7 @@ def get_histogram(
 
 def get_color_limits(prop, statistic="mean", maps=False):
     limits = {
-        "f_esc": (0.0, 0.1, 0.2),
+        "f_esc": (0.0, 0.2, 0.4),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
     }
@@ -1107,8 +1117,6 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
         f_esc_weighted = df.groupby(["z", "mass_bins"])["f_esc_weighted"].sum()
         Ion_em = df.groupby(["z", "mass_bins"])["Ion_em"].sum()
         f_esc_means = f_esc_weighted / Ion_em
-        print(f_esc_weighted)
-        print(Ion_em)
     else:
         groups = df.groupby(["z", "mass_bins"])["f_esc"]
         f_esc_means = groups.mean()
@@ -1284,7 +1292,7 @@ def plot_prop_maps(
             nrows=image_rows,
             gridspec_kw={
                 "hspace": 0.2 * len(props_of_interest),
-                "wspace": 0.2 * len(props_of_interest),
+                "wspace": 0.3 * 0.75 * len(props_of_interest),
             },
             figsize=figsize,
         )
@@ -1315,7 +1323,12 @@ def plot_prop_maps(
                     parameters,
                 )
                 create_color_bar(
-                    fig, ax, parameters, subfig, label=get_label(prop)
+                    fig,
+                    ax,
+                    parameters,
+                    subfig,
+                    label=get_label(prop),
+                    multiple=True,
                 )
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
