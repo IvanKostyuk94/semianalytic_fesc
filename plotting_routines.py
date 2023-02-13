@@ -10,6 +10,7 @@ import pandas as pd
 import h5py
 import os
 from utils import get_snap
+from matplotlib import colors
 
 
 def plot_histogram(
@@ -769,6 +770,8 @@ def create_color_bar(f, ax, parameters, subfig, label=None, multiple=False):
     else:
         ticksize = parameters["colorbar_ticklabelsize"]
     cbar.ax.tick_params(labelsize=ticksize)
+    # cbar.ax.set_yticks([0.5, 0.75, 1, 1.5, 2])
+
     return
 
 
@@ -914,7 +917,7 @@ def log_mean(quant):
 def get_label(prop):
     prop_labels = {
         "M_gas_sun_log": r"$\log \left(\frac{M_\mathrm{gas}}{M_\odot} \right)$",
-        "M_star_sun_log": r"$\log \left(\frac{M_\mathrm{star}}{M_\odot} \right)$",
+        "M_star_sun_log": r"$\log \left(\frac{M_\star}{M_\odot} \right)$",
         "SFR": r"$\log \left( \frac{\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1}} \right)$",
         "f_g": r"$f_g$",
         "f_g_crit": r"$f_{g, \mathrm{crit}}$",
@@ -924,12 +927,14 @@ def get_label(prop):
         "Metallicity": r"$\log(Z)$",
         "U": r"$\log(U)$",
         "N_d": r"$N_d$",
-        "N_ratio": r"$\mathcal{N}$",
+        "N_ratio": r"$N_0/N_d$",
         "z": "z",
         "f_esc": r"$f_\mathrm{esc}$",
         "n_gas": r"$\log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)$",
         "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
         "U1": r"$U_1$",
+        "N_S_ratio": r"$N_0/N_S$",
+        "Ion_flux": r"$\log (F_i/\mathrm{cm}^{-2})$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1003,6 +1008,9 @@ def get_color_limits(prop, statistic="mean", maps=False):
         "f_esc": (0.0, 0.5, 1.0),
         "f_g_crit": (0.0, 0.5, 1.0),
         "SFR": (-8, -6, -4),
+        "N_S_ratio": (0.5, 1, 2),
+        "N_ratio": (0.5, 1, 2),
+        "Ion_flux": (5, 6.5, 8),
     }
     if maps:
         if prop in limits_maps:
@@ -1036,7 +1044,8 @@ def prop_prop_histogram(
     # Clean df
     df.dropna(subset="f_esc", inplace=True)
     df.dropna(subset="f_g_crit", inplace=True)
-    df.drop(df[df["M_star_sun_log"] < 5.55].index, inplace=True)
+    df.drop(df[df["M_star_sun_log"] < 5.4].index, inplace=True)
+    df.drop(df[df["M_gas_sun_log"] < 6].index, inplace=True)
 
     x_values = df[prop_x]
     y_values = df[prop_y]
@@ -1076,7 +1085,7 @@ def prop_prop_histogram(
     #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     # )
     subfig = ax.pcolormesh(
-        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
+        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("magma")
     )
     levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
     ax.contour(
@@ -1086,7 +1095,7 @@ def prop_prop_histogram(
         levels=levels,
         linewidths=4,
         linestyles=["dotted", "dashed", "solid"],
-        colors="white",
+        colors="blue",
     )
 
     if statistic == "count":
@@ -1106,15 +1115,27 @@ def prop_prop_histogram(
     return
 
 
-def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
+def fesc_Mstar(
+    df,
+    mass_bins=30,
+    em_weighted=False,
+    x_prop="M_star_sun_log",
+    skip=1,
+    params=None,
+):
     parameters = plot_parameters(params)
     g_to_msun = (1 * u.g).to(u.M_sun)
     df.dropna(subset="f_esc", inplace=True)
-    df["M_star_sun_log"] = np.log10(df["M_star"] * g_to_msun)
-    x_values = df["M_star_sun_log"]
+    if x_prop == "M_star_sun_log":
+        df["M_star_sun_log"] = np.log10(df["M_star"] * g_to_msun)
+    elif x_prop == "M_gas_sun_log":
+        df["M_gas_sun_log"] = np.log10(df["M_gas"] * g_to_msun)
+    else:
+        raise NotImplementedError(f"{x_prop} is not implemented")
+    x_values = df[x_prop]
     x_edges = np.linspace(x_values.min(), x_values.max(), mass_bins)
     x_centers = (x_edges[1:] + x_edges[:-1]) / 2
-    df["mass_bins"] = pd.cut(df["M_star_sun_log"], x_edges)
+    df["mass_bins"] = pd.cut(df[x_prop], x_edges)
 
     z_values = df["z"].unique()[::-1]
     if em_weighted:
@@ -1152,15 +1173,19 @@ def fesc_Mstar(df, mass_bins=30, em_weighted=False, skip=1, params=None):
                     linewidth=parameters["linewidth"],
                 )
 
-    label_x = get_label("M_star_sun_log")
+    label_x = get_label(x_prop)
     label_y = r"$\langle f_\mathrm{esc} \rangle$"
 
     ax.set_xlabel(label_x, size=parameters["labelsize"])
     ax.set_ylabel(label_y, size=parameters["labelsize"])
     set_ax_params(ax, parameters)
     ax.legend(fontsize=parameters["legendsize"])
-    ax.set_xlim(5.8)
-    ax.set_ylim(0, 0.2)
+    if x_prop == "M_star_sun_log":
+        ax.set_xlim(5.8)
+        ax.set_ylim(0, 0.2)
+    elif x_prop == "M_gas_sun_log":
+        ax.set_xlim(6.7, 9.5)
+        ax.set_ylim(0, 0.25)
     return
 
 
@@ -1218,7 +1243,16 @@ def get_map_sample(df, prop, hdf_prefix, grid_size, n, halo_nums):
             maps[num] = get_image(df, num, hdf_prefix, prop, grid_size)
     else:
         for num in halo_nums:
-            maps[num] = get_image(df, num, hdf_prefix, prop, grid_size)
+            if prop == "N_S_ratio":
+                map_ns = get_image(
+                    df, num, hdf_prefix, "Column_dens_stroemgren", grid_size
+                )
+                map_n0 = get_image(
+                    df, num, hdf_prefix, "Column_dens", grid_size
+                )
+                maps[num] = np.array(map_n0) / np.array(map_ns)
+            else:
+                maps[num] = get_image(df, num, hdf_prefix, prop, grid_size)
     return maps
 
 
@@ -1283,6 +1317,7 @@ def plot_prop_maps(
             maps[key] = np.log10(maps[key])
 
     parameters = plot_parameters(params, multiple=True)
+    col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
 
     if type == "single_halo":
         figsize = (
@@ -1319,10 +1354,9 @@ def plot_prop_maps(
 
                 subfig = ax.pcolormesh(
                     maps[scale],
-                    # cmap=colormaps["inferno"],
-                    cmap=colormaps["plasma"],
-                    vmin=vmin,
-                    vmax=vmax,
+                    cmap=colormaps["inferno"],
+                    norm=col_norm,
+                    # cmap=colormaps["coolwarm"],
                 )
 
                 set_ax_params(ax, parameters, multiple=True)
@@ -1357,16 +1391,16 @@ def plot_z_histogram(df):
     parameters = plot_parameters(params=None)
 
     f, ax = plt.subplots(
-        figsize=[parameters["figure_width"], parameters["figure_height"]])
-    
-    
-    values = np.array(df.groupby('z').count()['r'])
+        figsize=[parameters["figure_width"], parameters["figure_height"]]
+    )
 
-    ax.bar(np.arange(len(values)), values, width=0.8, color='darkgreen')
+    values = np.array(df.groupby("z").count()["r"])
+
+    ax.bar(np.arange(len(values)), values, width=0.8, color="darkgreen")
     labels = [f"{x:.1f}" for x in df.z.unique()[::-1]]
     ax.set_xticks(np.arange(len(labels))[::2] - 0.1)
     ax.set_xticklabels(labels[::2])
-    ax.set_xlabel('z', size=parameters["labelsize"])
-    ax.set_ylabel(r'$N_\mathrm{galaxies}$', size=parameters["labelsize"])
+    ax.set_xlabel("z", size=parameters["labelsize"])
+    ax.set_ylabel(r"$N_\mathrm{galaxies}$", size=parameters["labelsize"])
     set_ax_params(ax, parameters)
     return
