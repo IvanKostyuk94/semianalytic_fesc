@@ -654,7 +654,7 @@ def plot_parameters(params, multiple=False):
     parameters["labelsize"] = 50
 
     parameters["titlesize"] = 30
-    parameters["multiple_titlesize"] = 15
+    parameters["multiple_titlesize"] = 35
     parameters["length_major_ticks"] = 16
     parameters["length_minor_ticks"] = 8
     parameters["width_minor_ticks"] = 3
@@ -663,8 +663,8 @@ def plot_parameters(params, multiple=False):
 
     parameters["colorbar_labelsize"] = 50
     parameters["colorbar_ticklabelsize"] = 30
-    parameters["colorbar_labelsize_multiple"] = 30
-    parameters["colorbar_ticklabelsize_multiple"] = 10
+    parameters["colorbar_labelsize_multiple"] = 40
+    parameters["colorbar_ticklabelsize_multiple"] = 30
 
     parameters["axes_width"] = 3
 
@@ -800,7 +800,9 @@ def plot_multiple_histograms(maps, params=None):
             quant = maps[prop]
         else:
             quant = np.log10(maps[prop])
-        subfig = ax.pcolormesh(quant, cmap=colormaps["inferno"])
+        # subfig = ax.pcolormesh(quant, cmap=colormaps["inferno"])
+        subfig = ax.pcolormesh(quant, cmap=colormaps["hotcold"])
+
         set_ax_params(ax, parameters)
         ax.set_title(prop, fontsize=parameters["titlesize"])
         create_color_bar(fig, ax, parameters, subfig)
@@ -993,7 +995,7 @@ def get_histogram(
 
 def get_color_limits(prop, statistic="mean", maps=False):
     limits = {
-        "f_esc": (0.0, 0.2, 0.4),
+        "f_esc": (0.0, 0.1, 0.2),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
     }
@@ -1070,8 +1072,11 @@ def prop_prop_histogram(
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
     )
+    # subfig = ax.pcolormesh(
+    #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
+    # )
     subfig = ax.pcolormesh(
-        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
+        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
     )
     levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
     ax.contour(
@@ -1079,9 +1084,9 @@ def prop_prop_histogram(
         cont_centers_y,
         hist_cont.T,
         levels=levels,
-        linewidths=3,
+        linewidths=4,
         linestyles=["dotted", "dashed", "solid"],
-        colors="blue",
+        colors="white",
     )
 
     if statistic == "count":
@@ -1173,6 +1178,8 @@ def get_hdf(df, z, hdf_prefix):
 def get_convergence_maps(hdf, halo_idx, prop):
     maps = {}
     for key in hdf.keys():
+        if key == "3":
+            continue
         if key == "None":
             continue
         maps[float(key)] = hdf[key][str(halo_idx)][prop]
@@ -1235,8 +1242,11 @@ def set_title(
         for new_prop in props_of_interest:
             label = get_label(new_prop)
             value = df.loc[halo_num, new_prop]
-            title += f"{label} = {value:.1E} \n"
-        ax.set_title(title, fontsize=parameters["multiple_titlesize"])
+            title += f"{label} = {value*100:.0f}%\n"
+        ax.set_title(
+            title,
+            fontsize=parameters["multiple_titlesize"],
+        )
     return
 
 
@@ -1292,7 +1302,7 @@ def plot_prop_maps(
             nrows=image_rows,
             gridspec_kw={
                 "hspace": 0.2 * len(props_of_interest),
-                "wspace": 0.3 * 0.75 * len(props_of_interest),
+                "wspace": 0.05,  # 0.3 * 0.75 * len(props_of_interest),
             },
             figsize=figsize,
         )
@@ -1302,11 +1312,15 @@ def plot_prop_maps(
                 if type != "single_halo":
                     column = int(i // skip % image_columns)
                     row = int(i // skip // image_columns)
-                    ax = axs[row, column]
+                    if image_rows > 1:
+                        ax = axs[row, column]
+                    else:
+                        ax = axs[column]
 
                 subfig = ax.pcolormesh(
                     maps[scale],
-                    cmap=colormaps["inferno"],
+                    # cmap=colormaps["inferno"],
+                    cmap=colormaps["plasma"],
                     vmin=vmin,
                     vmax=vmax,
                 )
@@ -1322,16 +1336,37 @@ def plot_prop_maps(
                     props_of_interest,
                     parameters,
                 )
-                create_color_bar(
-                    fig,
-                    ax,
-                    parameters,
-                    subfig,
-                    label=get_label(prop),
-                    multiple=True,
-                )
+                if int(i // skip % image_columns) == (image_columns - 1):
+                    create_color_bar(
+                        fig,
+                        ax,
+                        parameters,
+                        subfig,
+                        label=get_label(prop),
+                        multiple=True,
+                    )
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
                 counter += 1
         trim_axes(axs, counter)
+    return
+
+
+def plot_z_histogram(df):
+
+    parameters = plot_parameters(params=None)
+
+    f, ax = plt.subplots(
+        figsize=[parameters["figure_width"], parameters["figure_height"]])
+    
+    
+    values = np.array(df.groupby('z').count()['r'])
+
+    ax.bar(np.arange(len(values)), values, width=0.8, color='darkgreen')
+    labels = [f"{x:.1f}" for x in df.z.unique()[::-1]]
+    ax.set_xticks(np.arange(len(labels))[::2] - 0.1)
+    ax.set_xticklabels(labels[::2])
+    ax.set_xlabel('z', size=parameters["labelsize"])
+    ax.set_ylabel(r'$N_\mathrm{galaxies}$', size=parameters["labelsize"])
+    set_ax_params(ax, parameters)
     return
