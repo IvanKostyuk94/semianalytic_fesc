@@ -57,12 +57,15 @@ def train_model(df, order=2):
     g_to_msun = (1 * u.g).to(u.M_sun)
     df["M_gas_sun_log"] = np.log10(df["M_gas"] * g_to_msun)
     df["M_star_sun_log"] = np.log10(df["M_star"] * g_to_msun)
+    df["Z"] = np.log10(df["Metallicity"])
     df.dropna(subset="f_esc", inplace=True)
     df.drop(df[df["M_star_sun_log"] < 5.55].index, inplace=True)
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True, subset="Z")
 
     train, test = train_test_split(df, test_size=0.1)
 
-    feature_cols = ["M_star_sun_log", "M_gas_sun_log", "Metallicity", "z"]
+    feature_cols = ["M_star_sun_log", "M_gas_sun_log", "Z", "z"]
     X = train.loc[:, feature_cols]
     y = train.f_esc
     X_test = test.loc[:, feature_cols]
@@ -74,8 +77,8 @@ def train_model(df, order=2):
     # fractions_wrong = []
     # average_errors = []
     # columns_to_use = np.where(masks[i, :] == 1)[0]
-    columns_to_use = [0, 1, 4, 5, 8, 10]
-    # columns_to_use = np.arange(14)
+    # columns_to_use = [0, 1, 4, 5, 8, 10]
+    columns_to_use = np.arange(14)
     X_poly = poly_features.fit_transform(X)
     X_poly_test = poly_features.fit_transform(X_test)
 
