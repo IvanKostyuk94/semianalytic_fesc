@@ -263,11 +263,12 @@ def escape_fraction(maps):
 def f_esc(maps):
     if "f_esc" in maps.keys():
         del maps["f_esc"]
-    maps["f_esc"] = np.where(
-        np.array(maps["f_g"]) < np.array(maps["f_g_crit"]),
-        escape_fraction(maps),
-        0,
-    )
+    maps["f_esc"] = escape_fraction(maps)
+    # maps["f_esc"] = np.where(
+    #     np.array(maps["f_g"]) < np.array(maps["f_g_crit"]),
+    #     escape_fraction(maps),
+    #     0,
+    # )
     return
 
 
