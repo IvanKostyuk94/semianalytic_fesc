@@ -89,13 +89,14 @@ def breakout_frac(
 
 
 if __name__ == "__main__":
-    snaps = np.arange(17)
+    snaps = np.arange(16, 17)
     grid_size = 100
     hdf_prefix = "gridded_maps_"
     df_prefix = "gridded_df_"
     for snap_num in snaps:
         hdf_name = hdf_prefix + str(snap_num)
         df_name = df_prefix + str(snap_num)
+        print(f"Working on snap {snap_num}")
         breakout_maps(
             snap_num,
             grid_size,
