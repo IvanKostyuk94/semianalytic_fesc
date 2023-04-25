@@ -264,6 +264,11 @@ def f_esc(maps):
     if "f_esc" in maps.keys():
         del maps["f_esc"]
     maps["f_esc"] = escape_fraction(maps)
+    maps["f_esc"] = np.where(
+        np.isnan(np.array(maps["N_red"])),
+        0,
+        escape_fraction(maps),
+    )
     # maps["f_esc"] = np.where(
     #     np.array(maps["f_g"]) < np.array(maps["f_g_crit"]),
     #     escape_fraction(maps),
