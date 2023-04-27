@@ -6,3 +6,5 @@
 !/deprecated/*.py
 !/deprecated/*.ipynb
 !/deprecated
+!/misc
+!/misc/*.py
