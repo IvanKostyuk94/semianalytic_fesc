@@ -139,11 +139,15 @@ def photon_to_gas(maps):
 
     if "U" in maps.keys():
         del maps["U"]
-    maps["U"] = (
-        np.array(maps["Ion_flux"])
-        / np.array(maps["n_gas"])
-        / constants.c.value
-        / m_to_cm
+    maps["U"] = np.where(
+        np.array(maps["n_gas"]) == 0,
+        0,
+        (
+            np.array(maps["Ion_flux"])
+            / np.array(maps["n_gas"])
+            / constants.c.value
+            / m_to_cm
+        ),
     )
     return
 
@@ -251,6 +255,21 @@ def reduced_column_den(maps):
 
 
 def escape_fraction(maps):
+    return np.where(
+        np.isnan(1 / np.array(maps["N_d"])),
+        np.exp(
+            -np.array(maps["N_red"])
+            * (1 / np.array(maps["Column_dens_stroemgren"]))
+        ),
+        np.exp(
+            -np.array(maps["N_red"])
+            * (
+                1 / np.array(maps["Column_dens_stroemgren"])
+                + 1 / np.array(maps["N_d"])
+            )
+        ),
+    )
+
     return np.exp(
         -np.array(maps["N_red"])
         * (
@@ -263,9 +282,9 @@ def escape_fraction(maps):
 def f_esc(maps):
     if "f_esc" in maps.keys():
         del maps["f_esc"]
-    maps["f_esc"] = escape_fraction(maps)
+    # maps["f_esc"] = escape_fraction(maps)
     maps["f_esc"] = np.where(
-        np.isnan(np.array(maps["N_red"])),
+        np.isnan(escape_fraction(maps)),
         0,
         escape_fraction(maps),
     )
