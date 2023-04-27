@@ -343,16 +343,19 @@ def update_maps(
     for idx in df.index:
         galaxy_name = str(idx)
         galaxy_group = group[galaxy_name]
-        if testing:
-            grid_size_column = "Grid_cell_size_" + str(grid_size)
+        if "f_esc" in galaxy_group.keys():
+            continue
         else:
-            grid_size_column = "Grid_cell_size"
-        grid_cell_size = df.loc[idx, grid_size_column]
-        scale_height = df.loc[idx, "Column_height"]
-        update_to_fesc(
-            maps=galaxy_group,
-            grid_cell_size=grid_cell_size,
-            scale_height=scale_height,
-        )
+            if testing:
+                grid_size_column = "Grid_cell_size_" + str(grid_size)
+            else:
+                grid_size_column = "Grid_cell_size"
+            grid_cell_size = df.loc[idx, grid_size_column]
+            scale_height = df.loc[idx, "Column_height"]
+            update_to_fesc(
+                maps=galaxy_group,
+                grid_cell_size=grid_cell_size,
+                scale_height=scale_height,
+            )
     hdf_file.close()
     return
