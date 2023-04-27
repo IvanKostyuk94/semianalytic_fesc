@@ -929,7 +929,8 @@ def get_label(prop):
         "N_d": r"$N_d$",
         "N_ratio": r"$N_0/N_d$",
         "z": "z",
-        "f_esc": r"$f_\mathrm{esc}$",
+        "f_esc": r"$\langle f_\mathrm{esc} \rangle$",
+        "f_esc_model": r"$f_\mathrm{esc,fit}$",
         "n_gas": r"$\log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)$",
         "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
         "U1": r"$U_1$",
@@ -1000,6 +1001,7 @@ def get_histogram(
 
 def get_color_limits(prop, statistic="mean", maps=False):
     limits = {
+        "f_esc_model": (0.0, 0.1, 0.2),
         "f_esc": (0.0, 0.1, 0.2),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
@@ -1085,7 +1087,7 @@ def prop_prop_histogram(
     #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     # )
     subfig = ax.pcolormesh(
-        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("magma")
+        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
     )
     levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
     ax.contour(
@@ -1095,7 +1097,7 @@ def prop_prop_histogram(
         levels=levels,
         linewidths=4,
         linestyles=["dotted", "dashed", "solid"],
-        colors="blue",
+        colors="white",
     )
 
     if statistic == "count":
