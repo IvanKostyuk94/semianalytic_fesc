@@ -158,6 +158,8 @@ def grid_halos(
         # This is for batch runs not able to finish a full df in 24h
         if "processed" in df.columns:
             if df.loc[idx, "processed"]:
+                grid_sizes.append(df.loc[idx, "Grid_cell_size"])
+                column_heights.append(df.loc[idx, "Column_height"])
                 continue
         if physical_grid_sizes is None:
             grid_size = grid_scale
