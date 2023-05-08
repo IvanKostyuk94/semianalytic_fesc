@@ -4,6 +4,9 @@ from gridded_maps import grid_halos
 from calculate_gridded_fesc_2 import update_maps
 from maps_to_df_3 import update_map_df
 from submit_runs import is_df_done
+from utils import get_snap
+import pandas as pd
+import os
 
 
 def create_database(
@@ -15,8 +18,15 @@ def create_database(
 ):
     df_name_full = df_name + "_" + str(num)
     maps_name_full = maps_name + "_" + str(num)
-    if not is_df_done(df_name_full, num):
-        build_new_df(snap_num=num, save_name=df_name_full, base=base)
+    df_name_extension = df_name + "_" + str(num) + ".pickle"
+    snap = get_snap(num)
+    df_path = os.path.join(base, snap, df_name_full)
+    try:
+        df = pd.read_pickle(df_path)
+        if not all(df["processed"]):
+            build_new_df(snap_num=num, save_name=df_name_extension, base=base)
+    except FileNotFoundError:
+        build_new_df(snap_num=num, save_name=df_name_extension, base=base)
     grid_halos(
         df_name=df_name_full,
         snap_num=num,
