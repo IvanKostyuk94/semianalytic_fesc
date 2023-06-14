@@ -147,3 +147,15 @@ def save_to_hdf(hdf_file, idx, approx_grid_size, maps):
         if map_name not in galaxy_group:
             _ = galaxy_group.create_dataset(map_name, data=maps[map_name])
     return
+
+
+def load_df(path):
+    df_full = pd.read_pickle(path)
+    df_full.dropna(inplace=True, subset="f_esc")
+    g_to_msun = (1 * u.g).to(u.M_sun)
+    df_full["M_gas_sun_log"] = np.log10(df_full["M_gas"] * g_to_msun)
+    df_full["M_star_sun_log"] = np.log10(df_full["M_star"] * g_to_msun)
+    df_full.dropna(subset="f_esc", inplace=True)
+    df_full.dropna(subset="f_g_crit", inplace=True)
+    df_full.drop(df_full[df_full["M_star_sun_log"] < 5.55].index, inplace=True)
+    return df_full
