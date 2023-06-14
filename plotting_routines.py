@@ -701,6 +701,7 @@ def plot_parameters(params, multiple=False):
 
     parameters["linewidth"] = 3
     parameters["capsize"] = 10
+    parameters["capwidth"] = 3
 
     if params is not None:
         for element in params:
@@ -758,6 +759,8 @@ def create_color_bar(f, ax, parameters, subfig, label=None, multiple=False):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.15)
     cbar = f.colorbar(subfig, cax=cax)
+
+    # cbar = f.colorbar(subfig, cax=ax)
     if label is not None:
         if multiple:
             size = parameters["colorbar_labelsize_multiple"]
@@ -770,7 +773,7 @@ def create_color_bar(f, ax, parameters, subfig, label=None, multiple=False):
     else:
         ticksize = parameters["colorbar_ticklabelsize"]
     cbar.ax.tick_params(labelsize=ticksize)
-    # cbar.ax.set_yticks([0.5, 0.75, 1, 1.5, 2])
+    # cbar.ax.set_yticks([0.5, 0.75, 1, 1.5, 2], labelsize=ticksize)
 
     return
 
@@ -803,8 +806,8 @@ def plot_multiple_histograms(maps, params=None):
             quant = maps[prop]
         else:
             quant = np.log10(maps[prop])
-        # subfig = ax.pcolormesh(quant, cmap=colormaps["inferno"])
-        subfig = ax.pcolormesh(quant, cmap=colormaps["hotcold"])
+        subfig = ax.pcolormesh(quant, cmap=colormaps["inferno"])
+        # subfig = ax.pcolormesh(quant, cmap=colormaps["hotcold"])
 
         set_ax_params(ax, parameters)
         ax.set_title(prop, fontsize=parameters["titlesize"])
@@ -930,12 +933,15 @@ def get_label(prop):
         "N_ratio": r"$N_0/N_d$",
         "z": "z",
         "f_esc": r"$\langle f_\mathrm{esc} \rangle$",
-        "f_esc_model": r"$f_\mathrm{esc,fit}$",
+        "f_esc_model": r"$\langle f_\mathrm{esc,fit} \rangle$",
         "n_gas": r"$\log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)$",
         "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
         "U1": r"$U_1$",
         "N_S_ratio": r"$N_0/N_S$",
         "Ion_flux": r"$\log (F_i/\mathrm{cm}^{-2})$",
+        "TimeMajorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
+        "TimeMinorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
+        "TimeRecentMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -995,7 +1001,8 @@ def get_histogram(
     )
 
     if statistic == "count":
-        hist = np.log10(hist)
+        pass
+        # hist = np.log10(hist)
     return hist, hist_cont, xedges_cont, yedges_cont
 
 
@@ -1021,7 +1028,8 @@ def get_color_limits(prop, statistic="mean", maps=False):
             return (None, None, None)
     else:
         if statistic == "count":
-            return (0, 2.5, 5)
+            return (0, 500, 1000)
+            # return (0, 2.5, 5)
         elif prop in limits:
             return limits[prop]
         else:
@@ -1083,12 +1091,12 @@ def prop_prop_histogram(
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
     )
-    # subfig = ax.pcolormesh(
-    #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
-    # )
     subfig = ax.pcolormesh(
-        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
+        x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     )
+    # subfig = ax.pcolormesh(
+    #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
+    # )
     levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
     ax.contour(
         cont_centers_x,
@@ -1099,6 +1107,7 @@ def prop_prop_histogram(
         linestyles=["dotted", "dashed", "solid"],
         colors="white",
     )
+    # ax.set_yticks([6, 7, 8, 9, 10])
 
     if statistic == "count":
         color_label = r"$\log(\mathrm{counts})$"
@@ -1128,12 +1137,9 @@ def fesc_Mstar(
     parameters = plot_parameters(params)
     g_to_msun = (1 * u.g).to(u.M_sun)
     df.dropna(subset="f_esc", inplace=True)
-    if x_prop == "M_star_sun_log":
-        df["M_star_sun_log"] = np.log10(df["M_star"] * g_to_msun)
-    elif x_prop == "M_gas_sun_log":
-        df["M_gas_sun_log"] = np.log10(df["M_gas"] * g_to_msun)
-    else:
-        raise NotImplementedError(f"{x_prop} is not implemented")
+    if x_prop == "TimeMajorMerger":
+        df = df.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
+
     x_values = df[x_prop]
     x_edges = np.linspace(x_values.min(), x_values.max(), mass_bins)
     x_centers = (x_edges[1:] + x_edges[:-1]) / 2
@@ -1185,9 +1191,10 @@ def fesc_Mstar(
     if x_prop == "M_star_sun_log":
         ax.set_xlim(5.8)
         ax.set_ylim(0, 0.2)
+        ax.set_yticks([0, 0.05, 0.1, 0.15, 0.2])
     elif x_prop == "M_gas_sun_log":
         ax.set_xlim(6.7, 9.5)
-        ax.set_ylim(0, 0.25)
+        ax.set_ylim(0, 0.2)
     return
 
 
@@ -1276,7 +1283,10 @@ def set_title(
     if type == "sample":
         title = ""
         for new_prop in props_of_interest:
-            label = get_label(new_prop)
+            if new_prop != "f_esc":
+                label = get_label(new_prop)
+            else:
+                label = r"$f_\mathrm{esc}$"
             value = df.loc[halo_num, new_prop]
             title += f"{label} = {value*100:.0f}%\n"
         ax.set_title(
@@ -1335,11 +1345,12 @@ def plot_prop_maps(
             parameters["height_per_image"] * image_rows,
         )
         fig, axs = plt.subplots(
-            ncols=image_columns,
+            ncols=image_columns + 1,
             nrows=image_rows,
             gridspec_kw={
                 "hspace": 0.2 * len(props_of_interest),
                 "wspace": 0.05,  # 0.3 * 0.75 * len(props_of_interest),
+                "width_ratios": [12, 12, 12, 1],
             },
             figsize=figsize,
         )
@@ -1351,8 +1362,10 @@ def plot_prop_maps(
                     row = int(i // skip // image_columns)
                     if image_rows > 1:
                         ax = axs[row, column]
+                        ax_col = axs[row, image_columns]
                     else:
                         ax = axs[column]
+                        ax_col = axs[image_columns]
 
                 subfig = ax.pcolormesh(
                     maps[scale],
@@ -1373,18 +1386,22 @@ def plot_prop_maps(
                     parameters,
                 )
                 if int(i // skip % image_columns) == (image_columns - 1):
+                    if prop != "f_esc":
+                        label = get_label(prop)
+                    else:
+                        label = r"$f_\mathrm{esc, cell}$"
                     create_color_bar(
                         fig,
-                        ax,
+                        ax_col,
                         parameters,
                         subfig,
-                        label=get_label(prop),
+                        label=label,
                         multiple=True,
                     )
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
                 counter += 1
-        trim_axes(axs, counter)
+        trim_axes(axs, counter + 1)
     return
 
 
@@ -1405,4 +1422,124 @@ def plot_z_histogram(df):
     ax.set_xlabel("z", size=parameters["labelsize"])
     ax.set_ylabel(r"$N_\mathrm{galaxies}$", size=parameters["labelsize"])
     set_ax_params(ax, parameters)
+    return
+
+
+# def subtract_value(group):
+#     group['Value'] = group['Value'] - values_to_subtract[group.index[0]]
+#     return group
+
+
+def lineplots(
+    df,
+    mass_bins=30,
+    em_weighted=False,
+    x_prop="M_star_sun_log",
+    y_prop="f_esc",
+    skip=1,
+    params=None,
+    log=False,
+    individual_z=True,
+):
+    parameters = plot_parameters(params)
+    df.dropna(subset="f_esc", inplace=True)
+    if x_prop == "TimeMajorMerger":
+        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+            subset="TimeMajorMerger", axis=0
+        )
+    elif x_prop == "TimeMinorMerger":
+        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+            subset="TimeMinorMerger", axis=0
+        )
+    elif x_prop == "TimeRecentMerger":
+        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+            subset="TimeRecentMerger", axis=0
+        )
+
+    x_values = df[x_prop]
+    x_edges = np.linspace(x_values.min(), x_values.max(), mass_bins)
+    x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+    df["mass_bins"] = pd.cut(df[x_prop], x_edges, include_lowest=True)
+
+    if individual_z:
+        z_values = df["z"].unique()[::-1]
+        groups = df.groupby(["z", "mass_bins"])[y_prop]
+    else:
+        groups = df.groupby(["mass_bins"])[y_prop]
+
+    if em_weighted:
+
+        Ion_em_groups = df.groupby(["mass_bins"])["Ion_em"]
+        df["weights"] = Ion_em_groups.transform(lambda x: x / x.sum())
+
+        df["f_esc_weighted"] = df["f_esc"] * df["weights"]
+        df["weighted_means"] = df.groupby(["mass_bins"])[
+            "f_esc_weighted"
+        ].transform(lambda x: x.sum())
+
+        y_prop_means = df.groupby(["mass_bins"])["f_esc_weighted"].sum()
+
+        # y_prop_count = groups.count()
+        # y_prop_pre_err = y_prop_std / np.sqrt(y_prop_count)
+
+        df["delta_fesc_weighted"] = (
+            df["weights"] * (df["f_esc"] - df["weighted_means"]) ** 2
+        )
+
+        y_prop_var = (
+            df.groupby(["mass_bins"])["weights"].apply(lambda x: x**2).sum()
+            * df.groupby(["mass_bins"])["f_esc"].var()
+        )
+
+        y_prop_err = np.sqrt(y_prop_var)
+
+    else:
+        if log:
+            y_prop_means = np.log10(groups.mean())
+            y_prop_std = groups.std()
+            y_prop_count = groups.count()
+            y_prop_err = 1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
+
+        else:
+            y_prop_means = groups.mean()
+            y_prop_std = groups.std()
+            y_prop_count = groups.count()
+            y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+
+    f, ax = plt.subplots(
+        figsize=[parameters["figure_width"], parameters["figure_height"]]
+    )
+
+    if individual_z:
+        for i, z in enumerate(z_values):
+            if i % skip == 0:
+                ax.errorbar(
+                    x_centers,
+                    y_prop_means[z],
+                    yerr=y_prop_err[z],
+                    label=f"z={z:.1f}",
+                    capsize=parameters["capsize"],
+                    capthick=parameters["capwidth"],
+                    linewidth=parameters["linewidth"],
+                )
+    else:
+        ax.errorbar(
+            x_centers,
+            y_prop_means,
+            yerr=y_prop_err,
+            capsize=parameters["capsize"],
+            capthick=parameters["capwidth"],
+            linewidth=parameters["linewidth"],
+            color="red",
+        )
+
+    label_x = get_label(x_prop)
+    label_y = get_label(y_prop)
+
+    ax.set_xlabel(label_x, size=parameters["labelsize"])
+    ax.set_ylabel(label_y, size=parameters["labelsize"])
+    set_ax_params(ax, parameters)
+    ax.legend(fontsize=parameters["legendsize"])
+    # ax.set_xlim(5.8)
+    # ax.set_ylim(0, 0.16)
     return
