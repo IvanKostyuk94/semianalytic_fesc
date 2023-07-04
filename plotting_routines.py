@@ -755,12 +755,27 @@ def set_ax_params(ax, parameters, multiple=False):
     return
 
 
-def create_color_bar(f, ax, parameters, subfig, label=None, multiple=False):
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes("right", size="5%", pad=0.15)
-    cbar = f.colorbar(subfig, cax=cax)
+def create_color_bar(
+    f,
+    ax,
+    parameters,
+    subfig,
+    label=None,
+    multiple=False,
+    ax_is_cbar=False,
+    horizontal=False,
+):
+    if ax_is_cbar:
+        if horizontal:
+            cbar = f.colorbar(subfig, cax=ax)
+        else:
+            cbar = f.colorbar(subfig, cax=ax, orientation="horizontal")
 
-    # cbar = f.colorbar(subfig, cax=ax)
+    else:
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.15)
+        cbar = f.colorbar(subfig, cax=cax)
+
     if label is not None:
         if multiple:
             size = parameters["colorbar_labelsize_multiple"]
@@ -811,7 +826,7 @@ def plot_multiple_histograms(maps, params=None):
 
         set_ax_params(ax, parameters)
         ax.set_title(prop, fontsize=parameters["titlesize"])
-        create_color_bar(fig, ax, parameters, subfig)
+        create_color_bar(fig, ax, parameters, subfig, ax_is_cbar=False)
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
     # if len(maps.keys()) % 2 == 1:
@@ -930,18 +945,23 @@ def get_label(prop):
         "Metallicity": r"$\log(Z)$",
         "U": r"$\log(U)$",
         "N_d": r"$N_d$",
-        "N_ratio": r"$N_0/N_d$",
+        # "N_ratio": r"$N_0/N_d$",
+        "N_ratio": r"$\tau_\mathrm{dust}$",
         "z": "z",
         "f_esc": r"$\langle f_\mathrm{esc} \rangle$",
         "f_esc_model": r"$\langle f_\mathrm{esc,fit} \rangle$",
         "n_gas": r"$\log \left( \frac{n_\mathrm{gas}}{\mathrm{cm}^{-3}} \right)$",
         "Sigma_SFR": r"\log \left( \frac{\rangle \Sigma_\mathrm{SFR} \langle}{M_\odot \mathrm{yr}^{-1} \mathrm{kpc}^{-2}} \right)",
         "U1": r"$U_1$",
-        "N_S_ratio": r"$N_0/N_S$",
+        # "N_S_ratio": r"$N_0/N_S$",
+        "N_S_ratio": r"$\tau_\mathrm{HI}$",
         "Ion_flux": r"$\log (F_i/\mathrm{cm}^{-2})$",
         "TimeMajorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
         "TimeMinorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
         "TimeRecentMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
+        "sSFR": r"$\log \left( \frac{\mathrm{sSFR}}{\mathrm{yr}^{-1}} \right)$",
+        "sZ": r"$\log(Z/M_\star)[M_\odot^{-1}]$",
+        "MgasMstar": r"$\frac{M_\mathrm{gas}}{M_\star}$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1009,7 +1029,7 @@ def get_histogram(
 def get_color_limits(prop, statistic="mean", maps=False):
     limits = {
         "f_esc_model": (0.0, 0.1, 0.2),
-        "f_esc": (0.0, 0.1, 0.2),
+        "f_esc": (0.0, 0.15, 0.3),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
     }
@@ -1057,6 +1077,10 @@ def prop_prop_histogram(
     df.drop(df[df["M_star_sun_log"] < 5.4].index, inplace=True)
     df.drop(df[df["M_gas_sun_log"] < 6].index, inplace=True)
 
+    if (prop_x == "TimeMajorMerger") or (prop_x == "TimeMajorMerger"):
+        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+            subset="TimeMajorMerger", axis=0
+        )
     x_values = df[prop_x]
     y_values = df[prop_y]
     if log_x:
@@ -1105,7 +1129,7 @@ def prop_prop_histogram(
         levels=levels,
         linewidths=4,
         linestyles=["dotted", "dashed", "solid"],
-        colors="white",
+        colors="lightblue",
     )
     # ax.set_yticks([6, 7, 8, 9, 10])
 
@@ -1123,6 +1147,8 @@ def prop_prop_histogram(
     ax.set_xlabel(get_label(prop_x), size=parameters["labelsize"])
     ax.set_ylabel(get_label(prop_y), size=parameters["labelsize"])
     set_ax_params(ax, parameters)
+    ax.set_xlim(5.5, 10.5)
+    ax.set_ylim(-5, 3)
     return
 
 
@@ -1282,17 +1308,17 @@ def set_title(
             )
     if type == "sample":
         title = ""
+
         for new_prop in props_of_interest:
+            value = df.loc[halo_num, new_prop]
             if new_prop != "f_esc":
                 label = get_label(new_prop)
+                title += f"{label} = {np.log10(value):.2f}\n"
             else:
                 label = r"$f_\mathrm{esc}$"
-            value = df.loc[halo_num, new_prop]
-            title += f"{label} = {value*100:.0f}%\n"
-        ax.set_title(
-            title,
-            fontsize=parameters["multiple_titlesize"],
-        )
+                title += f"{label} = {value*100:.0f}%\n"
+
+        ax.set_title(title, fontsize=parameters["multiple_titlesize"], y=0.9)
     return
 
 
@@ -1309,6 +1335,7 @@ def plot_prop_maps(
     log=False,
     props_of_interest=["f_esc"],
     n_maps=16,
+    horizontal=True,
 ):
     if type == "convergence":
         maps = get_convergence_maps(hdf, halo_num, prop=prop)
@@ -1340,31 +1367,52 @@ def plot_prop_maps(
     else:
         image_columns = 3
         image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
-        figsize = (
-            parameters["width_per_image"] * image_columns,
-            parameters["height_per_image"] * image_rows,
-        )
-        fig, axs = plt.subplots(
-            ncols=image_columns + 1,
-            nrows=image_rows,
-            gridspec_kw={
-                "hspace": 0.2 * len(props_of_interest),
-                "wspace": 0.05,  # 0.3 * 0.75 * len(props_of_interest),
-                "width_ratios": [12, 12, 12, 1],
-            },
-            figsize=figsize,
-        )
+        if horizontal:
+            figsize = (
+                parameters["width_per_image"] * image_columns,
+                parameters["height_per_image"] * image_rows,
+            )
+            fig, axs = plt.subplots(
+                ncols=image_columns + 1,
+                nrows=image_rows,
+                gridspec_kw={
+                    "hspace": 0.01 * len(props_of_interest),
+                    "wspace": 0.05,  # 0.3 * 0.75 * len(props_of_interest),
+                    "width_ratios": [12, 12, 12, 1],
+                },
+                figsize=figsize,
+            )
+        else:
+            figsize = (
+                parameters["width_per_image"] * 1,
+                parameters["height_per_image"] * image_columns,
+            )
+            fig, axs = plt.subplots(
+                ncols=image_rows,
+                nrows=image_columns + 1,
+                gridspec_kw={
+                    "hspace": 0.05,  # * len(props_of_interest),
+                    "wspace": 0.05,  # 0.3 * 0.75 * len(props_of_interest),
+                    "height_ratios": [12, 12, 12, 1],
+                },
+                figsize=figsize,
+            )
+
         counter = 0
         for i, scale in enumerate(maps.keys()):
             if i % skip == 0:
                 if type != "single_halo":
-                    column = int(i // skip % image_columns)
-                    row = int(i // skip // image_columns)
-                    if image_rows > 1:
-                        ax = axs[row, column]
-                        ax_col = axs[row, image_columns]
+                    if horizontal:
+                        column = int(i // skip % image_columns)
+                        row = int(i // skip // image_columns)
+                        if image_rows > 1:
+                            ax = axs[row, column]
+                            ax_col = axs[row, image_columns]
+                        else:
+                            ax = axs[column]
+                            ax_col = axs[image_columns]
                     else:
-                        ax = axs[column]
+                        ax = axs[i]
                         ax_col = axs[image_columns]
 
                 subfig = ax.pcolormesh(
@@ -1397,6 +1445,8 @@ def plot_prop_maps(
                         subfig,
                         label=label,
                         multiple=True,
+                        ax_is_cbar=True,
+                        horizontal=horizontal,
                     )
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
@@ -1440,6 +1490,7 @@ def lineplots(
     params=None,
     log=False,
     individual_z=True,
+    x_log=False,
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
@@ -1456,9 +1507,19 @@ def lineplots(
             subset="TimeRecentMerger", axis=0
         )
 
+    if x_log:
+        df["prop_log"] = np.log10(df[x_prop])
+        # Hacky solution to deepcopy the string
+        x_prop_org = (x_prop + ".")[:-1]
+        x_prop = "prop_log"
+        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+            subset="prop_log", axis=0
+        )
+
     x_values = df[x_prop]
     x_edges = np.linspace(x_values.min(), x_values.max(), mass_bins)
     x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+
     df["mass_bins"] = pd.cut(df[x_prop], x_edges, include_lowest=True)
 
     if individual_z:
@@ -1533,7 +1594,10 @@ def lineplots(
             color="red",
         )
 
-    label_x = get_label(x_prop)
+    if x_log:
+        label_x = get_label(x_prop_org)
+    else:
+        label_x = get_label(x_prop)
     label_y = get_label(y_prop)
 
     ax.set_xlabel(label_x, size=parameters["labelsize"])
