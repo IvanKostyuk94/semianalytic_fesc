@@ -155,6 +155,11 @@ def load_df(path):
     g_to_msun = (1 * u.g).to(u.M_sun)
     df_full["M_gas_sun_log"] = np.log10(df_full["M_gas"] * g_to_msun)
     df_full["M_star_sun_log"] = np.log10(df_full["M_star"] * g_to_msun)
+    df_full["sSFR"] = df_full["SFR"] / 10 ** df_full["M_star_sun_log"]
+    df_full["sZ"] = df_full["Metallicity"] / 10 ** df_full["M_star_sun_log"]
+    df_full["MgasMstar"] = (
+        10 ** df_full["M_gas_sun_log"] / 10 ** df_full["M_star_sun_log"]
+    )
     df_full.dropna(subset="f_esc", inplace=True)
     df_full.dropna(subset="f_g_crit", inplace=True)
     df_full.drop(df_full[df_full["M_star_sun_log"] < 5.55].index, inplace=True)
