@@ -1607,3 +1607,30 @@ def lineplots(
     # ax.set_xlim(5.8)
     # ax.set_ylim(0, 0.16)
     return
+
+
+# Fixing the plot sample to specific galaxy IDs for quick updating
+def plot_sample(df, mode, prop="f_esc", props_of_interest=[]):
+    sample_dict = {
+        "low_sfr": [630154, 533087, 546897],
+        "high_sfr": [109259, 413819, 559133],
+        "center": [514694, 32983, 417607],
+        "extensive_escape": [347141, 345611, 355525],
+        "localize_escape": [213376, 604648, 592453],
+    }
+    plot_prop_maps(
+        df,
+        halo_num=sample_dict[mode],
+        prop=prop,
+        hdf=None,
+        hdf_prefix="gridded_maps_",
+        grid_size="100",
+        type="sample",
+        skip=1,
+        params=None,
+        log=False,
+        props_of_interest=props_of_interest,
+        # n_maps=16,
+        horizontal=True,
+    )
+    return
