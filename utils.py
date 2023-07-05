@@ -160,7 +160,7 @@ def load_df(path):
     df_full["MgasMstar"] = (
         10 ** df_full["M_gas_sun_log"] / 10 ** df_full["M_star_sun_log"]
     )
-    df_full.dropna(subset="f_esc", inplace=True)
+    df_full.drop(df_full[df_full["M_gas_sun_log"] < 6].index, inplace=True)
     df_full.dropna(subset="f_g_crit", inplace=True)
     df_full.drop(df_full[df_full["M_star_sun_log"] < 5.55].index, inplace=True)
     return df_full
