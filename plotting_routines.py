@@ -1068,14 +1068,15 @@ def prop_prop_histogram(
     bins_x=30,
     bins_y=30,
     params=None,
+    color_log=False,
 ):
+    if color_log:
+        df["color_prop"] = np.log10(df[color_prop])
+        color_prop = "color_prop"
     parameters = plot_parameters(params)
 
     # Clean df
-    df.dropna(subset="f_esc", inplace=True)
-    df.dropna(subset="f_g_crit", inplace=True)
-    df.drop(df[df["M_star_sun_log"] < 5.4].index, inplace=True)
-    df.drop(df[df["M_gas_sun_log"] < 6].index, inplace=True)
+    # df.dropna(subset="f_g_crit", inplace=True)
 
     if (prop_x == "TimeMajorMerger") or (prop_x == "TimeMajorMerger"):
         df = df.replace([np.inf, -np.inf], np.nan).dropna(
@@ -1492,6 +1493,7 @@ def lineplots(
     individual_z=True,
     x_log=False,
     all=False,
+    with_mass_bins=False,
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
@@ -1521,27 +1523,35 @@ def lineplots(
     x_edges = np.linspace(x_values.min(), x_values.max(), mass_bins)
     x_centers = (x_edges[1:] + x_edges[:-1]) / 2
 
-    df["mass_bins"] = pd.cut(df[x_prop], x_edges, include_lowest=True)
+    df["prop_bins"] = pd.cut(df[x_prop], x_edges, include_lowest=True)
 
     if individual_z:
         z_values = df["z"].unique()[::-1]
-        groups = df.groupby(["z", "mass_bins"])[y_prop]
+        groups = df.groupby(["z", "prop_bins"])[y_prop]
         if all:
-            groups_all = df.groupby(["mass_bins"])[y_prop]
+            groups_all = df.groupby(["prop_bins"])[y_prop]
+    if with_mass_bins:
+        df = df[(df.M_star_sun_log > 6) & (df.M_star_sun_log < 9)]
+        stellar_mass_bins = pd.cut(df.M_star_sun_log, bins=20)
+        df["mass_bins"] = stellar_mass_bins
+        bin_groups = np.sort(stellar_mass_bins.unique())
+        groups = df.groupby(["mass_bins", "prop_bins"])[y_prop]
+        if all:
+            groups_all = df.groupby(["prop_bins"])[y_prop]
     else:
-        groups = df.groupby(["mass_bins"])[y_prop]
+        groups = df.groupby(["prop_bins"])[y_prop]
 
     if em_weighted:
 
-        Ion_em_groups = df.groupby(["mass_bins"])["Ion_em"]
+        Ion_em_groups = df.groupby(["prop_bins"])["Ion_em"]
         df["weights"] = Ion_em_groups.transform(lambda x: x / x.sum())
 
         df["f_esc_weighted"] = df["f_esc"] * df["weights"]
-        df["weighted_means"] = df.groupby(["mass_bins"])[
+        df["weighted_means"] = df.groupby(["prop_bins"])[
             "f_esc_weighted"
         ].transform(lambda x: x.sum())
 
-        y_prop_means = df.groupby(["mass_bins"])["f_esc_weighted"].sum()
+        y_prop_means = df.groupby(["prop_bins"])["f_esc_weighted"].sum()
 
         # y_prop_count = groups.count()
         # y_prop_pre_err = y_prop_std / np.sqrt(y_prop_count)
@@ -1551,8 +1561,8 @@ def lineplots(
         )
 
         y_prop_var = (
-            df.groupby(["mass_bins"])["weights"].apply(lambda x: x**2).sum()
-            * df.groupby(["mass_bins"])["f_esc"].var()
+            df.groupby(["prop_bins"])["weights"].apply(lambda x: x**2).sum()
+            * df.groupby(["prop_bins"])["f_esc"].var()
         )
 
         y_prop_err = np.sqrt(y_prop_var)
@@ -1589,6 +1599,21 @@ def lineplots(
                     y_prop_means[z],
                     yerr=y_prop_err[z],
                     label=f"z={z:.1f}",
+                    capsize=parameters["capsize"],
+                    capthick=parameters["capwidth"],
+                    linewidth=parameters["linewidth"],
+                )
+    if with_mass_bins:
+        for i, bin in enumerate(bin_groups):
+            if i % skip == 0:
+                lower = f"{bin.left:.1f}"
+                upper = f"{bin.right:.1f}"
+                label = "$M_\star=10^{" + lower + "}-10^{" + upper + "}$"
+                ax.errorbar(
+                    x_centers,
+                    y_prop_means[bin],
+                    yerr=y_prop_err[bin],
+                    label=label,
                     capsize=parameters["capsize"],
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
