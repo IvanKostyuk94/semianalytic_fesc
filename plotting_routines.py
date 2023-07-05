@@ -1491,6 +1491,7 @@ def lineplots(
     log=False,
     individual_z=True,
     x_log=False,
+    all=False,
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
@@ -1525,6 +1526,8 @@ def lineplots(
     if individual_z:
         z_values = df["z"].unique()[::-1]
         groups = df.groupby(["z", "mass_bins"])[y_prop]
+        if all:
+            groups_all = df.groupby(["mass_bins"])[y_prop]
     else:
         groups = df.groupby(["mass_bins"])[y_prop]
 
@@ -1562,10 +1565,17 @@ def lineplots(
             y_prop_err = 1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
 
         else:
-            y_prop_means = groups.mean()
+            y_prop_means = groups.apply(
+                lambda x: x.mean() if x.count() > 5 else np.nan
+            )
             y_prop_std = groups.std()
             y_prop_count = groups.count()
             y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+            if all:
+                y_prop_means_all = groups_all.mean()
+                y_prop_std_all = groups_all.std()
+                y_prop_count_all = groups_all.count()
+                y_prop_err_all = y_prop_std_all / np.sqrt(y_prop_count_all)
 
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
@@ -1583,6 +1593,19 @@ def lineplots(
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
                 )
+        if all:
+            factor = 1.5
+            ax.errorbar(
+                x_centers,
+                y_prop_means_all,
+                yerr=y_prop_err_all,
+                capsize=parameters["capsize"] * factor,
+                capthick=parameters["capwidth"] * factor,
+                linewidth=parameters["linewidth"] * factor,
+                color="black",
+                label="all redshifts",
+            )
+
     else:
         ax.errorbar(
             x_centers,
@@ -1605,7 +1628,7 @@ def lineplots(
     set_ax_params(ax, parameters)
     ax.legend(fontsize=parameters["legendsize"])
     # ax.set_xlim(5.8)
-    # ax.set_ylim(0, 0.16)
+    # ax.set_ylim(0, 0.2)
     return
 
 
