@@ -11,6 +11,7 @@ import h5py
 import os
 from utils import get_snap
 from matplotlib import colors
+from matplotlib.ticker import ScalarFormatter
 
 
 def plot_histogram(
@@ -764,16 +765,24 @@ def create_color_bar(
     multiple=False,
     ax_is_cbar=False,
     horizontal=False,
+    gap=False,
 ):
     if ax_is_cbar:
         if horizontal:
-            cbar = f.colorbar(subfig, cax=ax)
-        else:
             cbar = f.colorbar(subfig, cax=ax, orientation="horizontal")
+            ax.xaxis.set_ticks_position("top")
+            ax.xaxis.set_label_position("top")
+
+        else:
+            cbar = f.colorbar(subfig, cax=ax)
 
     else:
         divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.15)
+        if gap:
+            pad = 10
+        else:
+            pad = 0.15
+        cax = divider.append_axes("top", size="5%", pad=pad)
         cbar = f.colorbar(subfig, cax=cax)
 
     if label is not None:
@@ -781,7 +790,7 @@ def create_color_bar(
             size = parameters["colorbar_labelsize_multiple"]
         else:
             size = parameters["colorbar_labelsize"]
-        cbar.set_label(label, size=size)
+        cbar.set_label(label, size=size, labelpad=18)
 
     if multiple:
         ticksize = parameters["colorbar_ticklabelsize_multiple"]
@@ -960,8 +969,9 @@ def get_label(prop):
         "TimeMinorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
         "TimeRecentMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
         "sSFR": r"$\log \left( \frac{\mathrm{sSFR}}{\mathrm{yr}^{-1}} \right)$",
-        "sZ": r"$\log(Z/M_\star)[M_\odot^{-1}]$",
-        "MgasMstar": r"$\frac{M_\mathrm{gas}}{M_\star}$",
+        "sZ": r"$\log(Z/M_\star)[\mathrm{M}_\odot^{-1}]$",
+        "MgasMstar": r"$\log(M_\mathrm{gas}/ M_\star)$",
+        "color_prop": r"$\log(H/\mathrm{cm})$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1032,6 +1042,10 @@ def get_color_limits(prop, statistic="mean", maps=False):
         "f_esc": (0.0, 0.15, 0.3),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
+        # Only works for column height
+        "color_prop": (21, 21.3, 21.6),
+        "TimeMajorMerger": (0, 150, 300),
+        "Column_height": (1.9e21, 2.15e21, 2.4e21),
     }
     limits_maps = {
         "f_esc": (0.0, 0.5, 1.0),
@@ -1069,6 +1083,9 @@ def prop_prop_histogram(
     bins_y=30,
     params=None,
     color_log=False,
+    contour=True,
+    add_line=False,
+    line_log=False,
 ):
     if color_log:
         df["color_prop"] = np.log10(df[color_prop])
@@ -1082,6 +1099,9 @@ def prop_prop_histogram(
         df = df.replace([np.inf, -np.inf], np.nan).dropna(
             subset="TimeMajorMerger", axis=0
         )
+    df = df.replace([np.inf, -np.inf], np.nan).dropna(
+        subset="TimeMajorMerger", axis=0
+    )
     x_values = df[prop_x]
     y_values = df[prop_y]
     if log_x:
@@ -1113,9 +1133,22 @@ def prop_prop_histogram(
     x_grid, y_grid = np.meshgrid(x_edges, y_edges)
     vmin, vcenter, vmax = get_color_limits(color_prop, statistic)
     col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
-    f, ax = plt.subplots(
-        figsize=[parameters["figure_width"], parameters["figure_height"]]
+    # f, ax = plt.subplots(
+    #     figsize=[parameters["figure_width"], parameters["figure_height"]]
+    # )
+    f, axs = plt.subplots(
+        ncols=1,
+        nrows=2,
+        gridspec_kw={
+            "hspace": 0.1,
+            "wspace": 0.25,  # 0.3 * 0.75 * len(props_of_interest),
+            # "width_ratios": [24, 1],
+            "height_ratios": [1.5, 24],
+        },
+        figsize=[parameters["figure_width"], parameters["figure_height"]],
     )
+    ax = axs[1]
+    cax = axs[0]
     subfig = ax.pcolormesh(
         x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     )
@@ -1123,22 +1156,78 @@ def prop_prop_histogram(
     #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
     # )
     levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
-    ax.contour(
-        cont_centers_x,
-        cont_centers_y,
-        hist_cont.T,
-        levels=levels,
-        linewidths=4,
-        linestyles=["dotted", "dashed", "solid"],
-        colors="lightblue",
-    )
-    # ax.set_yticks([6, 7, 8, 9, 10])
-
+    if contour:
+        ax.contour(
+            cont_centers_x,
+            cont_centers_y,
+            hist_cont.T,
+            levels=levels,
+            linewidths=4,
+            linestyles=["dotted", "dashed", "solid"],
+            colors="lightblue",
+        )
     if statistic == "count":
         color_label = r"$\log(\mathrm{counts})$"
     else:
         color_label = get_label(color_prop)
-    create_color_bar(f, ax, parameters, subfig, label=color_label)
+    create_color_bar(
+        f,
+        cax,
+        parameters,
+        subfig,
+        label=color_label,
+        gap=True,
+        ax_is_cbar=True,
+        horizontal=True,
+    )
+
+    if add_line:
+        x_edges = np.linspace(x_values.min(), x_values.max(), 20)
+        x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+        df["prop_bins"] = pd.cut(df[prop_x], x_edges, include_lowest=True)
+        groups = df.groupby(["prop_bins"])[prop_y]
+
+        y_prop_std = groups.std()
+        y_prop_count = groups.count()
+        if line_log:
+            y_prop_means = groups.apply(
+                lambda x: np.log10(x.mean()) if x.count() > 5 else np.nan
+            y_prop_err = 1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
+
+        else:
+            y_prop_means = groups.apply(
+                lambda x: x.mean() if x.count() > 5 else np.nan
+            )
+            y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+
+        ax2 = ax.twinx()
+        # prop = r"$M_\mathrm{gas}/M_\star$"
+        prop = r"$H$"
+        ax2.errorbar(
+            x_centers,
+            y_prop_means,
+            yerr=y_prop_err,
+            capsize=parameters["capsize"],
+            capthick=parameters["capwidth"],
+            linewidth=parameters["linewidth"],
+            color="lime",
+            label=rf"$\langle${prop}$\rangle(T_\mathrm{{merger}})$",
+        )
+        ax2.set_ylabel(
+            rf"$\langle${prop}$\rangle[\mathrm{{cm}}]$",  # /\mathrm{{cm}})$",
+            size=parameters["labelsize"],
+        )
+        # ax2.set_ylim(21.1, 21.35)
+        y_range = y_prop_means.max() - y_prop_means.min()
+        ax2.set_ylim(
+            y_prop_means.min() - 0.2 * y_range,
+            y_prop_means.max() + 0.2 * y_range,
+        )
+
+        set_ax_params(ax2, parameters)
+        ax2.legend(fontsize=parameters["legendsize"])
+        ax2.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+        ax2.yaxis.offsetText.set_fontsize(parameters["colorbar_ticklabelsize"])
 
     if prop_x == "z":
         labels = [f"{x:.1f}" for x in df.z.unique()[::-1]]
@@ -1147,9 +1236,11 @@ def prop_prop_histogram(
 
     ax.set_xlabel(get_label(prop_x), size=parameters["labelsize"])
     ax.set_ylabel(get_label(prop_y), size=parameters["labelsize"])
+    # ax.legend(fontsize=parameters["legendsize"])
     set_ax_params(ax, parameters)
-    ax.set_xlim(5.5, 10.5)
-    ax.set_ylim(-5, 3)
+
+    # ax.set_xlim(1e21, 1e22)
+    # ax.set_ylim(1e21, 2e21)
     return
 
 
