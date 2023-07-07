@@ -1192,6 +1192,7 @@ def prop_prop_histogram(
         if line_log:
             y_prop_means = groups.apply(
                 lambda x: np.log10(x.mean()) if x.count() > 5 else np.nan
+            )
             y_prop_err = 1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
 
         else:
@@ -1567,9 +1568,44 @@ def plot_z_histogram(df):
     return
 
 
-# def subtract_value(group):
-#     group['Value'] = group['Value'] - values_to_subtract[group.index[0]]
-#     return group
+def get_average_values(groups, log=False, em_weighted=False, df=None):
+    if log:
+        y_prop_means = np.log10(groups.mean())
+        y_prop_std = groups.std()
+        y_prop_count = groups.count()
+        y_prop_err = 1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
+
+    elif em_weighted:
+        Ion_em_groups = df.groupby(["prop_bins"])["Ion_em"]
+        df["weights"] = Ion_em_groups.transform(lambda x: x / x.sum())
+
+        df["f_esc_weighted"] = df["f_esc"] * df["weights"]
+        df["weighted_means"] = df.groupby(["prop_bins"])[
+            "f_esc_weighted"
+        ].transform(lambda x: x.sum())
+
+        y_prop_means = df.groupby(["prop_bins"])["f_esc_weighted"].sum()
+
+        df["delta_fesc_weighted"] = (
+            df["weights"] * (df["f_esc"] - df["weighted_means"]) ** 2
+        )
+
+        y_prop_var = (
+            df.groupby(["prop_bins"])["weights"].apply(lambda x: x**2).sum()
+            * df.groupby(["prop_bins"])["f_esc"].var()
+        )
+
+        y_prop_err = np.sqrt(y_prop_var)
+
+    else:
+        y_prop_means = groups.apply(
+            lambda x: x.mean() if x.count() > 5 else np.nan
+        )
+        y_prop_std = groups.std()
+        y_prop_count = groups.count()
+        y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+
+    return y_prop_means, y_prop_err
 
 
 def lineplots(
@@ -1585,6 +1621,8 @@ def lineplots(
     x_log=False,
     all=False,
     with_mass_bins=False,
+    two_modes=False,
+    df2=None,
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
@@ -1629,54 +1667,20 @@ def lineplots(
         groups = df.groupby(["mass_bins", "prop_bins"])[y_prop]
         if all:
             groups_all = df.groupby(["prop_bins"])[y_prop]
+
     else:
         groups = df.groupby(["prop_bins"])[y_prop]
+        if two_modes:
+            groups2 = df2.groupby(["prop_bins"])[y_prop]
 
-    if em_weighted:
+    y_prop_means, y_prop_err = get_average_values(
+        groups, log=log, em_weighted=em_weighted, df=df
+    )
 
-        Ion_em_groups = df.groupby(["prop_bins"])["Ion_em"]
-        df["weights"] = Ion_em_groups.transform(lambda x: x / x.sum())
-
-        df["f_esc_weighted"] = df["f_esc"] * df["weights"]
-        df["weighted_means"] = df.groupby(["prop_bins"])[
-            "f_esc_weighted"
-        ].transform(lambda x: x.sum())
-
-        y_prop_means = df.groupby(["prop_bins"])["f_esc_weighted"].sum()
-
-        # y_prop_count = groups.count()
-        # y_prop_pre_err = y_prop_std / np.sqrt(y_prop_count)
-
-        df["delta_fesc_weighted"] = (
-            df["weights"] * (df["f_esc"] - df["weighted_means"]) ** 2
+    if all:
+        y_prop_means_all, y_prop_err_all = get_average_values(
+            groups_all, log=log, em_weighted=em_weighted, df=df
         )
-
-        y_prop_var = (
-            df.groupby(["prop_bins"])["weights"].apply(lambda x: x**2).sum()
-            * df.groupby(["prop_bins"])["f_esc"].var()
-        )
-
-        y_prop_err = np.sqrt(y_prop_var)
-
-    else:
-        if log:
-            y_prop_means = np.log10(groups.mean())
-            y_prop_std = groups.std()
-            y_prop_count = groups.count()
-            y_prop_err = 1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
-
-        else:
-            y_prop_means = groups.apply(
-                lambda x: x.mean() if x.count() > 5 else np.nan
-            )
-            y_prop_std = groups.std()
-            y_prop_count = groups.count()
-            y_prop_err = y_prop_std / np.sqrt(y_prop_count)
-            if all:
-                y_prop_means_all = groups_all.mean()
-                y_prop_std_all = groups_all.std()
-                y_prop_count_all = groups_all.count()
-                y_prop_err_all = y_prop_std_all / np.sqrt(y_prop_count_all)
 
     f, ax = plt.subplots(
         figsize=[parameters["figure_width"], parameters["figure_height"]]
