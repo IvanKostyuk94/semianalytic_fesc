@@ -1043,9 +1043,11 @@ def get_color_limits(prop, statistic="mean", maps=False):
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
         # Only works for column height
-        "color_prop": (21, 21.3, 21.6),
+        # "color_prop": (21, 21.3, 21.6),
+        "color_prop": (-4, -3, -2),
         "TimeMajorMerger": (0, 150, 300),
         "Column_height": (1.9e21, 2.15e21, 2.4e21),
+        "Metallicity": (1e-6, 1e-4, 1e-2),
     }
     limits_maps = {
         "f_esc": (0.0, 0.5, 1.0),
@@ -1131,7 +1133,9 @@ def prop_prop_histogram(
         cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
     cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
     x_grid, y_grid = np.meshgrid(x_edges, y_edges)
+    print(color_prop)
     vmin, vcenter, vmax = get_color_limits(color_prop, statistic)
+    print(vmin, vcenter, vmax)
     col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
     # f, ax = plt.subplots(
     #     figsize=[parameters["figure_width"], parameters["figure_height"]]
@@ -1184,7 +1188,9 @@ def prop_prop_histogram(
     if add_line:
         x_edges = np.linspace(x_values.min(), x_values.max(), 20)
         x_centers = (x_edges[1:] + x_edges[:-1]) / 2
-        df["prop_bins"] = pd.cut(df[prop_x], x_edges, include_lowest=True)
+        df.replace([0, -np.inf], np.nan).dropna(subset="Metallicity", axis=0)
+        df["test"] = np.log10(df[prop_x])
+        df["prop_bins"] = pd.cut(df["test"], x_edges, include_lowest=True)
         groups = df.groupby(["prop_bins"])[prop_y]
 
         y_prop_std = groups.std()
@@ -1220,10 +1226,11 @@ def prop_prop_histogram(
         )
         # ax2.set_ylim(21.1, 21.35)
         y_range = y_prop_means.max() - y_prop_means.min()
-        ax2.set_ylim(
-            y_prop_means.min() - 0.2 * y_range,
-            y_prop_means.max() + 0.2 * y_range,
-        )
+        # ax2.set_ylim(
+        #     y_prop_means.min() - 0.2 * y_range,
+        #     y_prop_means.max() + 0.2 * y_range,
+        # )
+        ax2.set_ylim(-4, -2)
 
         set_ax_params(ax2, parameters)
         ax2.legend(fontsize=parameters["legendsize"])
@@ -1622,7 +1629,7 @@ def lineplots(
     all=False,
     with_mass_bins=False,
     two_modes=False,
-    df2=None,
+    filters=None,
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
@@ -1670,12 +1677,22 @@ def lineplots(
 
     else:
         groups = df.groupby(["prop_bins"])[y_prop]
-        if two_modes:
-            groups2 = df2.groupby(["prop_bins"])[y_prop]
 
     y_prop_means, y_prop_err = get_average_values(
         groups, log=log, em_weighted=em_weighted, df=df
     )
+    if two_modes:
+        df1 = df[filters[0]]
+        df2 = df[filters[1]]
+
+        groups1 = df1.groupby(["prop_bins"])[y_prop]
+        groups2 = df2.groupby(["prop_bins"])[y_prop]
+        y_prop_means1, y_prop_err1 = get_average_values(
+            groups1, log=log, em_weighted=em_weighted, df=df
+        )
+        y_prop_means2, y_prop_err2 = get_average_values(
+            groups2, log=log, em_weighted=em_weighted, df=df
+        )
 
     if all:
         y_prop_means_all, y_prop_err_all = get_average_values(
@@ -1725,6 +1742,28 @@ def lineplots(
                 color="black",
                 label="all redshifts",
             )
+
+    if two_modes:
+        ax.errorbar(
+            x_centers,
+            y_prop_means1,
+            yerr=y_prop_err1,
+            capsize=parameters["capsize"],
+            capthick=parameters["capwidth"],
+            linewidth=parameters["linewidth"],
+            color="red",
+            label=r"$H<10^{21}\mathrm{cm}$",
+        )
+        ax.errorbar(
+            x_centers,
+            y_prop_means2,
+            yerr=y_prop_err2,
+            capsize=parameters["capsize"],
+            capthick=parameters["capwidth"],
+            linewidth=parameters["linewidth"],
+            color="blue",
+            label=r"$H>10^{21}\mathrm{cm}$",
+        )
 
     else:
         ax.errorbar(
