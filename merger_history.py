@@ -76,5 +76,85 @@ def update_merger_time(
     return
 
 
+def get_subhalo_df(snap_num):
+    sim, _ = get_sim()
+    dataset = next(sim.group_cat[snap_num].chunk_generator("subhalo"))
+    keys_needed = ["SubhaloMass", "SubhaloMassType", "SubhaloSFR"]
+    sub_dict = {key: dataset[key] for key in keys_needed}
+    dataset_df = utils.dfFromArrDict(sub_dict)
+
+    new_df = pd.DataFrame().assign(
+        M_tot=dataset_df[("SubhaloMass", 0)],
+        M_gas=dataset_df[("SubhaloMassType", 0)],
+        M_star=dataset_df[("SubhaloMassType", 4)],
+        SFR=dataset_df[("SubhaloSFR", 0)],
+    )
+    return new_df
+
+
+def get_subhalo_list(snap_num):
+    sim, _ = get_sim()
+    dataset = next(sim.group_cat[snap_num].chunk_generator("halo"))
+    subhalo_list = dataset["GroupFirstSub"]
+    return subhalo_list
+
+
+# Note: This function only works for the three snapshots examined in the numerical study
+def get_snap_num(z):
+    z_to_snap = {6: 13, 8: 8, 10: 4}
+    return z_to_snap[z]
+
+
+def add_subhalo_info(df_name, base_path="/ptmp/mpa/ivkos/semianalytic_fesc"):
+    df_path = os.path.join(base_path, df_name)
+    df = pd.read_pickle(df_path)
+    df["GalaxyStarMass"] = np.nan
+    df["GalaxyGasMass"] = np.nan
+    df["GalaxyMass"] = np.nan
+    df["GalaxySFR"] = np.nan
+    df["GalaxyID"] = np.nan
+
+    redshifts = [6, 8, 10]
+    for z in redshifts:
+        snap_num = get_snap_num(z)
+        subhalo_catalog = get_subhalo_df(snap_num)
+        subhalo_list = get_subhalo_list(snap_num)
+        sub_df = df[df.z == z]
+        for _, element in sub_df.iterrows():
+            subhalo_id = subhalo_list[element.ID]
+            df[(df.z == z) & (df.ID == element.ID)][
+                "GalaxyStarMass"
+            ] = subhalo_catalog.loc[subhalo_id]["M_tot"]
+            df[(df.z == z) & (df.ID == element.ID)][
+                "GalaxyGasMass"
+            ] = subhalo_catalog.loc[subhalo_id]["M_gas"]
+            df[(df.z == z) & (df.ID == element.ID)][
+                "GalaxyMass"
+            ] = subhalo_catalog.loc[subhalo_id]["M_star"]
+            df[(df.z == z) & (df.ID == element.ID)][
+                "GalaxySFR"
+            ] = subhalo_catalog.loc[subhalo_id]["SFR"]
+            df[(df.z == z) & (df.ID == element.ID)]["GalaxyID"] = subhalo_id
+    df.to_pickle(df_path)
+    return
+
+
+def add_relative_fractions(
+    df_name, base_path="/ptmp/mpa/ivkos/semianalytic_fesc"
+):
+    df_path = os.path.join(base_path, df_name)
+    df = pd.read_pickle(df_path)
+    df["GalaxyStarFraction"] = df["GalaxyStarMass"] / (
+        df["GalaxyMass"] * df["FractionStars"]
+    )
+    df["GalaxyGasFraction"] = df["GalaxyGasMass"] / (
+        df["GalaxyMass"] * df["FractionGas"]
+    )
+    df["GalaxyMassFraction"] = df["GalaxyMass"] / df["HaloMass"]
+    df["GalaxySFRFraction"] = df["GalaxySFR"] / df["SFR"]
+    df.to_pickle(df_path)
+    return
+
+
 if __name__ == "__main__":
     update_merger_time("gridded_df_", snap_range=(0, 17))
