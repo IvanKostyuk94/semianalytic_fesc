@@ -972,6 +972,7 @@ def get_label(prop):
         "sZ": r"$\log(Z/M_\star)[\mathrm{M}_\odot^{-1}]$",
         "MgasMstar": r"$\log(M_\mathrm{gas}/ M_\star)$",
         "color_prop": r"$\log(H/\mathrm{cm})$",
+        "MassStarLog": r"$\log \left(\frac{M_\star}{M_\odot} \right)$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1039,7 +1040,7 @@ def get_histogram(
 def get_color_limits(prop, statistic="mean", maps=False):
     limits = {
         "f_esc_model": (0.0, 0.1, 0.2),
-        "f_esc": (0.0, 0.15, 0.3),
+        "f_esc": (0.0, 0.3, 0.6),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
         # Only works for column height
@@ -1098,12 +1099,12 @@ def prop_prop_histogram(
     # df.dropna(subset="f_g_crit", inplace=True)
 
     if (prop_x == "TimeMajorMerger") or (prop_x == "TimeMajorMerger"):
-        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+        df = df.replace({"TimeMajorMerger": [np.inf, -np.inf]}, np.nan).dropna(
             subset="TimeMajorMerger", axis=0
         )
-    df = df.replace([np.inf, -np.inf], np.nan).dropna(
-        subset="TimeMajorMerger", axis=0
-    )
+    # df = df.replace([np.inf, -np.inf], np.nan).dropna(
+    #     subset="TimeMajorMerger", axis=0
+    # )
     x_values = df[prop_x]
     y_values = df[prop_y]
     if log_x:
@@ -1133,9 +1134,7 @@ def prop_prop_histogram(
         cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
     cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
     x_grid, y_grid = np.meshgrid(x_edges, y_edges)
-    print(color_prop)
     vmin, vcenter, vmax = get_color_limits(color_prop, statistic)
-    print(vmin, vcenter, vmax)
     col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
     # f, ax = plt.subplots(
     #     figsize=[parameters["figure_width"], parameters["figure_height"]]
@@ -1634,7 +1633,7 @@ def lineplots(
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
     if x_prop == "TimeMajorMerger":
-        df = df.replace([np.inf, -np.inf], np.nan).dropna(
+        df = df.replace({"TimeMajorMerger": [np.inf, -np.inf]}, np.nan).dropna(
             subset="TimeMajorMerger", axis=0
         )
     elif x_prop == "TimeMinorMerger":
