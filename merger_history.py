@@ -38,6 +38,25 @@ def most_recent_merger(df):
     return
 
 
+def get_time_since_merger(merger_file, galaxy_id, snap_num):
+    snap_major_merger = merger_file["SnapNumLastMajorMerger"][galaxy_id]
+    snap_minor_merger = merger_file["SnapNumLastMinorMerger"][galaxy_id]
+    if snap_major_merger != -1:
+        time_since_major = get_time_between_snapshot(
+            snap_major_merger, snap_num
+        )
+    else:
+        time_since_major = np.inf
+    if snap_minor_merger != -1:
+        time_since_minor = get_time_between_snapshot(
+            snap_minor_merger, snap_num
+        )
+    else:
+        time_since_minor = np.inf
+
+    return time_since_major, time_since_minor
+
+
 def update_merger_time(
     df_prefix,
     snap_range=(1, 17),
@@ -53,20 +72,9 @@ def update_merger_time(
         merger_times_major = []
         merger_times_minor = []
         for galaxy in df.index:
-            snap_major_merger = merger_file["SnapNumLastMajorMerger"][galaxy]
-            snap_minor_merger = merger_file["SnapNumLastMinorMerger"][galaxy]
-            if snap_major_merger != -1:
-                time_since_major = get_time_between_snapshot(
-                    snap_major_merger, i
-                )
-            else:
-                time_since_major = np.inf
-            if snap_minor_merger != -1:
-                time_since_minor = get_time_between_snapshot(
-                    snap_minor_merger, i
-                )
-            else:
-                time_since_minor = np.inf
+            time_since_major, time_since_minor = get_time_since_merger(
+                merger_file, galaxy, i
+            )
             merger_times_major.append(time_since_major)
             merger_times_minor.append(time_since_minor)
         merger_file.close()
@@ -122,19 +130,22 @@ def add_subhalo_info(df_name, base_path="/ptmp/mpa/ivkos/semianalytic_fesc"):
         sub_df = df[df.z == z]
         for _, element in sub_df.iterrows():
             subhalo_id = subhalo_list[element.ID]
-            df[(df.z == z) & (df.ID == element.ID)][
-                "GalaxyStarMass"
-            ] = subhalo_catalog.loc[subhalo_id]["M_tot"]
-            df[(df.z == z) & (df.ID == element.ID)][
-                "GalaxyGasMass"
-            ] = subhalo_catalog.loc[subhalo_id]["M_gas"]
-            df[(df.z == z) & (df.ID == element.ID)][
-                "GalaxyMass"
+            df.loc[
+                (df.z == z) & (df.ID == element.ID), "GalaxyStarMass"
             ] = subhalo_catalog.loc[subhalo_id]["M_star"]
-            df[(df.z == z) & (df.ID == element.ID)][
-                "GalaxySFR"
+            df.loc[
+                (df.z == z) & (df.ID == element.ID), "GalaxyGasMass"
+            ] = subhalo_catalog.loc[subhalo_id]["M_gas"]
+            df.loc[
+                (df.z == z) & (df.ID == element.ID), "GalaxyMass"
+            ] = subhalo_catalog.loc[subhalo_id]["M_tot"]
+            df.loc[
+                (df.z == z) & (df.ID == element.ID), "GalaxySFR"
             ] = subhalo_catalog.loc[subhalo_id]["SFR"]
-            df[(df.z == z) & (df.ID == element.ID)]["GalaxyID"] = subhalo_id
+            df.loc[
+                (df.z == z) & (df.ID == element.ID), "GalaxyID"
+            ] = subhalo_id
+    df["GalaxyID"] = df["GalaxyID"].astype(int)
     df.to_pickle(df_path)
     return
 
@@ -154,6 +165,40 @@ def add_relative_fractions(
     df["GalaxySFRFraction"] = df["GalaxySFR"] / df["SFR"]
     df.to_pickle(df_path)
     return
+
+
+def add_merger_times_to_numerical_df(
+    numerical_df_name,
+    galaxy_df_prefix="gridded_df_",
+    base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
+):
+    numerical_df_path = os.path.join(base_path, numerical_df_name)
+    numerical_df = pd.read_pickle(numerical_df_path)
+
+    numerical_df["TimeMajorMerger"] = np.nan
+    numerical_df["TimeMinorMerger"] = np.nan
+
+    redshifts = [6, 8, 10]
+    for z in redshifts:
+        numerical_sub_df = numerical_df[numerical_df.z == z]
+        snap_num = get_snap_num(z)
+        snap = get_snap(snap_num)
+        merger_file = get_merger_snap(snap)
+
+        for _, element in numerical_sub_df.iterrows():
+            time_since_major, time_since_minor = get_time_since_merger(
+                merger_file, element.GalaxyID, snap_num
+            )
+            numerical_df.loc[
+                (numerical_df.z == z) & (numerical_df.ID == element.ID),
+                "TimeMajorMerger",
+            ] = np.float64(time_since_major)
+            numerical_df.loc[
+                (numerical_df.z == z) & (numerical_df.ID == element.ID),
+                "TimeMinorMerger",
+            ] = np.float64(time_since_minor)
+
+    numerical_df.to_pickle(numerical_df_path)
 
 
 if __name__ == "__main__":
