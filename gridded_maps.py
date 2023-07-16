@@ -3,14 +3,166 @@ import numpy as np
 import os
 import h5py
 import illustris_python as il
-from get_height_and_maps_1 import create_particle_box, separate_wind_stars
-from utils import get_snap, get_sim, get_redshift, save_to_hdf
 import pyTNG.utils as utils
+
+from utils import (
+    get_snap,
+    get_sim,
+    get_redshift,
+    save_to_hdf,
+    get_particle_dist,
+)
 from pyTNG import gridding
 from astropy import units as u
 from pyTNG.cosmology import TNGcosmo
+from sklearn.decomposition import PCA
+
 
 h = TNGcosmo.h
+
+
+def get_normed_coord(particles, df, index, z, is_relative=False):
+    gal_center = np.array(
+        [
+            df.loc[index]["Halo_pos_x"],
+            df.loc[index]["Halo_pos_y"],
+            df.loc[index]["Halo_pos_z"],
+        ]
+    )
+    if is_relative:
+        rel_pos = particles["Coordinates"]
+    else:
+        rel_pos = particles["Coordinates"] - gal_center
+    dist_to_cm = (1 * u.kpc).to(u.cm).value / h / (1 + z)
+    radius = df.loc[index]["r"] * 2 / dist_to_cm
+    rel_pos_norm = rel_pos / radius
+    particles["rel_pos_norm"] = rel_pos_norm
+    return
+
+
+def get_relative_coord(particles, df, idx):
+    gal_center = np.array(
+        [
+            df.loc[idx]["Halo_pos_x"],
+            df.loc[idx]["Halo_pos_y"],
+            df.loc[idx]["Halo_pos_z"],
+        ]
+    )
+    particles["Coordinates"] = particles["Coordinates"] - gal_center
+    return
+
+
+# Corrects the particle dictionary to only contain the particles in relevant
+def map_to_new_dict(particles, relevant):
+    rel_particles = {}
+    newcount_particles = (relevant).sum()
+    for key, value in particles.items():
+        try:
+            rel_particles[key] = value[relevant]
+        # for Python scalars
+        except TypeError as e:
+            if "not subscriptable" in str(e):
+                pass
+            else:
+                raise
+        # for numpy scalars
+        except IndexError as e:
+            if "invalid index to scalar variable" in str(e):
+                pass
+            else:
+                raise
+    if "count" in particles:
+        rel_particles["count"] = newcount_particles
+    return rel_particles
+
+
+def select_sphere_gas(particles, df, idx, z, is_relative):
+    if particles["count"] == 0:
+        return particles
+    else:
+        get_particle_dist(particles, df, idx, z, is_relative=is_relative)
+        idces_rel_particles = particles["rel_dist"] < 1
+        rel_particles = map_to_new_dict(particles, idces_rel_particles)
+    return rel_particles
+
+
+def select_box_gas(particles):
+    if particles["count"] == 0:
+        return particles
+    else:
+        idces_rel_particles = ~np.any(
+            np.abs(particles["rel_pos_norm"]) > 1, axis=1
+        )
+        rel_particles = map_to_new_dict(particles, idces_rel_particles)
+
+    return rel_particles
+
+
+def separate_wind_stars(starAndWindParts):
+    try:
+        idces_wind = starAndWindParts["GFM_StellarFormationTime"] < 0
+        idces_stars = starAndWindParts["GFM_StellarFormationTime"] > 0
+
+        newcount_wind = (idces_wind).sum()
+        newcount_stars = (idces_stars).sum()
+
+        wind = {}
+        stars = {}
+        for key, value in starAndWindParts.items():
+            try:
+                wind[key] = value[idces_wind]
+                stars[key] = value[idces_stars]
+            # for Python scalars
+            except TypeError as e:
+                if "not subscriptable" in str(e):
+                    pass
+                else:
+                    raise
+            # for numpy scalars
+            except IndexError as e:
+                if "invalid index to scalar variable" in str(e):
+                    pass
+                else:
+                    raise
+        if "count" in starAndWindParts:
+            wind["count"] = newcount_wind
+            stars["count"] = newcount_stars
+    except KeyError as e:
+        if (
+            str(e) == "GFM_StellarFormationTime"
+            and starAndWindParts["count"] == 0
+        ):
+            pass
+        else:
+            raise
+
+    return wind, stars
+
+
+def create_particle_box(gas, df, idx, z, stars=None):
+    get_relative_coord(gas, df, idx)
+    sphere_gas = select_sphere_gas(gas, df, idx, z, is_relative=True)
+    # Send a flag identifying that there are too few gas gas
+    # for a proper resolution
+    if sphere_gas["count"] < 5:
+        if stars is not None:
+            return 0, 0
+        else:
+            return 0
+    pca = PCA(3)
+    pca.fit(sphere_gas["Coordinates"])
+    gas["Coordinates"] = pca.transform(gas["Coordinates"])
+    get_normed_coord(gas, df, idx, z, is_relative=True)
+    box_gas = select_box_gas(gas)
+
+    if stars is not None:
+        get_relative_coord(stars, df, idx)
+        stars["Coordinates"] = pca.transform(stars["Coordinates"])
+        get_normed_coord(stars, df, idx, z, is_relative=True)
+        box_stars = select_box_gas(stars)
+        return box_gas, box_stars
+    else:
+        return box_gas
 
 
 def get_gridded_quantities(
