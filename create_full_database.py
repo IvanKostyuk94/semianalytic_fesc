@@ -7,14 +7,16 @@ from submit_runs import is_df_done
 from utils import get_snap
 import pandas as pd
 import os
+import config
 
 
 def create_database(
     num,
-    df_name="df",
-    maps_name="maps",
-    scale=100,
-    base="/ptmp/mpa/ivkos/semianalytic_fesc",
+    df_name=config.df_name,
+    maps_name=config.maps_name,
+    scale=config.grid_size,
+    base=config.base_path,
+    with_breakout=config.with_breakout,
 ):
     df_name_full = df_name + "_" + str(num)
     maps_name_full = maps_name + "_" + str(num)
@@ -46,6 +48,7 @@ def create_database(
         grid_size=scale,
         hdf_name=maps_name_full,
         df_name=df_name_full,
+        with_breakout=with_breakout,
     )
     update_map_df(
         snap_num=num,
