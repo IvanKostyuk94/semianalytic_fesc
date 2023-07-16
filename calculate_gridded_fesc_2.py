@@ -279,24 +279,27 @@ def escape_fraction(maps):
     )
 
 
-def f_esc(maps):
+def f_esc(maps, with_breakout=True):
     if "f_esc" in maps.keys():
         del maps["f_esc"]
-    # maps["f_esc"] = escape_fraction(maps)
-    maps["f_esc"] = np.where(
-        np.isnan(escape_fraction(maps)),
-        0,
-        escape_fraction(maps),
-    )
-    # maps["f_esc"] = np.where(
-    #     np.array(maps["f_g"]) < np.array(maps["f_g_crit"]),
-    #     escape_fraction(maps),
-    #     0,
-    # )
+
+    if with_breakout:
+        maps["f_esc"] = np.where(
+            np.array(maps["f_g"]) < np.array(maps["f_g_crit"]),
+            escape_fraction(maps),
+            0,
+        )
+
+    else:
+        maps["f_esc"] = np.where(
+            np.isnan(escape_fraction(maps)),
+            0,
+            escape_fraction(maps),
+        )
     return
 
 
-def update_to_fesc(maps, grid_cell_size, scale_height):
+def update_to_fesc(maps, grid_cell_size, scale_height, with_breakout=True):
     get_surface_dens(maps, grid_cell_size)
     get_lum_from_sfr(maps)
     normalized_dust(maps)
@@ -317,7 +320,7 @@ def update_to_fesc(maps, grid_cell_size, scale_height):
     add_critical_gas_fraction(maps)
     evac_gas_frac(maps, scale_height)
     reduced_column_den(maps)
-    f_esc(maps)
+    f_esc(maps, with_breakout=with_breakout)
     return
 
 
@@ -328,6 +331,7 @@ def update_maps(
     df_name,
     base="/ptmp/mpa/ivkos/semianalytic_fesc",
     testing=False,
+    with_breakout=True,
 ):
     snap = get_snap(snap_num)
     hdf_filename = hdf_name + ".hdf5"
@@ -356,6 +360,7 @@ def update_maps(
                 maps=galaxy_group,
                 grid_cell_size=grid_cell_size,
                 scale_height=scale_height,
+                with_breakout=with_breakout,
             )
     hdf_file.close()
     return
