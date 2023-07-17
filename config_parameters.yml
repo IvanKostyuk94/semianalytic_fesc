@@ -7,6 +7,7 @@ base_path : "/ptmp/mpa/ivkos/semianalytic_fesc"
 # The full name will be name_snapshot.hdf5/pickle
 df_name : "new_df"
 maps_name : "new_maps"
+full_df_name: "new_full_df"
 
 # What is the size of the grid for each galaxy
 # Make sure the star-forming regions are sufficiently resolved

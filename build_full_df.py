@@ -2,14 +2,15 @@ import pandas as pd
 import numpy as np
 import os
 from utils import get_sim, get_redshift, get_snap
+from config import config
 
 
 def merge_dfs(
     snap_min,
     snap_max,
-    base="/ptmp/mpa/ivkos/semianalytic_fesc",
+    base=config["base_path"],
     destination_path=None,
-    name="full_df",
+    name=config["full_df_name"],
     name_prefix_dfs=None,
 ):
     """
@@ -53,11 +54,15 @@ def merge_dfs(
             df_dict["idx"] = list(df.index)
         else:
             for key in df.columns:
-                df_dict[key].extend(list(df[key].copy()))
+                try:
+                    df_dict[key].extend(list(df[key].copy()))
+                except:
+                    print(key)
+                    print(snap_num)
             df_dict["z"].extend(np.ones(len(df)) * z)
             df_dict["idx"].extend(df.index)
-
     full_df = pd.DataFrame.from_dict(df_dict)
     full_df.drop(columns=["100", "processed"], inplace=True)
+    print(destination_path)
     full_df.to_pickle(destination_path)
     return

@@ -1,10 +1,7 @@
 import os
 from utils import get_snap
 import pandas as pd
-import yaml
-
-with open("config.yml", "r") as f:
-    config = yaml.safe_load(f)
+from config import config
 
 
 def write_job(snap_num, jobname):
