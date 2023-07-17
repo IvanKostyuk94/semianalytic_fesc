@@ -5,28 +5,30 @@ from maps_to_df_3 import update_map_df
 from utils import get_snap
 import pandas as pd
 import os
-import config
+import yaml
+
+with open("config.yml", "r") as f:
+    config = yaml.safe_load(f)
 
 
 def create_database(
     num,
-    df_name=config.df_name,
-    maps_name=config.maps_name,
-    scale=config.grid_size,
-    base=config.base_path,
-    with_breakout=config.with_breakout,
+    df_name=config["df_name"],
+    maps_name=config["maps_name"],
+    scale=config["grid_size"],
+    base=config["base_path"],
+    with_breakout=config["with_breakout"],
 ):
     df_name_full = df_name + "_" + str(num)
     maps_name_full = maps_name + "_" + str(num)
-    df_name_extension = df_name + "_" + str(num) + ".pickle"
     snap = get_snap(num)
     df_path = os.path.join(base, snap, df_name_full)
     try:
         df = pd.read_pickle(df_path)
         if not all(df["processed"]):
-            build_new_df(snap_num=num, save_name=df_name_extension, base=base)
+            build_new_df(snap_num=num, save_name=df_name_full, base=base)
     except FileNotFoundError:
-        build_new_df(snap_num=num, save_name=df_name_extension, base=base)
+        build_new_df(snap_num=num, save_name=df_name_full, base=base)
     grid_halos(
         df_name=df_name_full,
         snap_num=num,

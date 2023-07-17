@@ -1,7 +1,10 @@
 import os
 from utils import get_snap
 import pandas as pd
-import config
+import yaml
+
+with open("config.yml", "r") as f:
+    config = yaml.safe_load(f)
 
 
 def write_job(snap_num, jobname):
@@ -28,7 +31,7 @@ python run.py {snap_num}
     return
 
 
-def is_df_done(df_name, snap_num, base_path=config.base_path):
+def is_df_done(df_name, snap_num, base_path=config["base_path"]):
     df_name_full = df_name + "_" + str(snap_num) + ".pickle"
     snap = get_snap(snap_num)
     df_path = os.path.join(base_path, snap, df_name_full)
@@ -41,11 +44,11 @@ def is_df_done(df_name, snap_num, base_path=config.base_path):
 
 
 if __name__ == "__main__":
-    df_name = config.df_name
-    snap_min = config.snap_min
-    snap_max = config.snap_max
+    df_name = config["df_name"]
+    snap_min = config["snap_min"]
+    snap_max = config["snap_max"]
     for snap in range(snap_min, snap_max + 1):
-        jobname = f"{config.jobname}_{snap}.sh"
+        jobname = f"{config['jobname']}_{snap}.sh"
         if is_df_done(df_name, snap):
             print(f"snap {snap} is already finished")
             os.system(f"rm {jobname}")

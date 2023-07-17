@@ -3,6 +3,7 @@
 !/*.py
 !/*ipynb
 !/*.md
+!/*.yml
 !/deprecated/*.py
 !/deprecated/*.ipynb
 !/deprecated
