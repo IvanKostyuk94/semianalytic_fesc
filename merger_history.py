@@ -4,15 +4,15 @@ import numpy as np
 import pandas as pd
 from pyTNG.cosmology import TNGcosmo
 import pyTNG.utils as utils
-from pyTNG import data_interface as _data_interface
 from utils import get_sim
 from utils import get_redshift
 from utils import get_snap
+from config import config
 
 
 def get_merger_snap(current_snap):
     snap_num = current_snap[2:]
-    basepath = "/virgotng/universe/IllustrisTNG/"
+    basepath = config["tng_datapath"]
     sim_name = "L35n2160TNG"
     merge_history = "postprocessing/MergerHistory/"
     catalog_name = f"MergerHistory_{snap_num}.hdf5"
@@ -60,12 +60,12 @@ def get_time_since_merger(merger_file, galaxy_id, snap_num):
 def update_merger_time(
     df_prefix,
     snap_range=(1, 17),
-    base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
+    base_path=config["base_path"],
 ):
     for i in range(*snap_range):
         snap = get_snap(i)
         dir_path = os.path.join(base_path, snap)
-        df_name = df_prefix + str(i) + ".pickle"
+        df_name = f"{df_prefix}{str(i)}.pickle"
         df_path = os.path.join(dir_path, df_name)
         df = pd.read_pickle(df_path)
         merger_file = get_merger_snap(snap)
@@ -113,7 +113,7 @@ def get_snap_num(z):
     return z_to_snap[z]
 
 
-def add_subhalo_info(df_name, base_path="/ptmp/mpa/ivkos/semianalytic_fesc"):
+def add_subhalo_info(df_name, base_path=config["base_path"]):
     df_path = os.path.join(base_path, df_name)
     df = pd.read_pickle(df_path)
     df["GalaxyStarMass"] = np.nan
@@ -150,9 +150,7 @@ def add_subhalo_info(df_name, base_path="/ptmp/mpa/ivkos/semianalytic_fesc"):
     return
 
 
-def add_relative_fractions(
-    df_name, base_path="/ptmp/mpa/ivkos/semianalytic_fesc"
-):
+def add_relative_fractions(df_name, base_path=config["base_path"]):
     df_path = os.path.join(base_path, df_name)
     df = pd.read_pickle(df_path)
     df["GalaxyStarFraction"] = df["GalaxyStarMass"] / (
@@ -169,8 +167,7 @@ def add_relative_fractions(
 
 def add_merger_times_to_numerical_df(
     numerical_df_name,
-    galaxy_df_prefix="gridded_df_",
-    base_path="/ptmp/mpa/ivkos/semianalytic_fesc",
+    base_path=config["base_path"],
 ):
     numerical_df_path = os.path.join(base_path, numerical_df_name)
     numerical_df = pd.read_pickle(numerical_df_path)
@@ -202,4 +199,4 @@ def add_merger_times_to_numerical_df(
 
 
 if __name__ == "__main__":
-    update_merger_time("gridded_df_", snap_range=(0, 17))
+    update_merger_time("new_df_", snap_range=(1, 17))

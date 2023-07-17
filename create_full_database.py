@@ -3,12 +3,10 @@ from gridded_maps import grid_halos
 from calculate_gridded_fesc_2 import update_maps
 from maps_to_df_3 import update_map_df
 from utils import get_snap
+from config import config
+
 import pandas as pd
 import os
-import yaml
-
-with open("config.yml", "r") as f:
-    config = yaml.safe_load(f)
 
 
 def create_database(

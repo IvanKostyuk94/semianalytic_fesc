@@ -11,7 +11,7 @@ def merge_dfs(
     base=config["base_path"],
     destination_path=None,
     name=config["full_df_name"],
-    name_prefix_dfs=None,
+    name_prefix_dfs=config["df_name"],
 ):
     """
     Takes all individual dataframes for various snapshots and creates a
@@ -39,7 +39,7 @@ def merge_dfs(
         if name_prefix_dfs is None:
             df_name = "df_" + str(snap_num) + ".pickle"
         else:
-            df_name = name_prefix_dfs + str(snap_num) + ".pickle"
+            df_name = f"{name_prefix_dfs}_{snap_num}.pickle"
         snap = get_snap(snap_num)
         sim, sim_path = get_sim()
         z = get_redshift(sim, snap_num)
@@ -57,12 +57,13 @@ def merge_dfs(
                 try:
                     df_dict[key].extend(list(df[key].copy()))
                 except:
+                    # Just for debugging
                     print(key)
                     print(snap_num)
             df_dict["z"].extend(np.ones(len(df)) * z)
             df_dict["idx"].extend(df.index)
+
     full_df = pd.DataFrame.from_dict(df_dict)
     full_df.drop(columns=["100", "processed"], inplace=True)
-    print(destination_path)
     full_df.to_pickle(destination_path)
     return
