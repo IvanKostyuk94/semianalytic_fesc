@@ -7,7 +7,7 @@ from config import config
 
 
 def get_average_column_dens(maps):
-    esc_mask = np.array(maps["f_esc"] > 0)
+    esc_mask = np.array(maps["f_esc"]) > 0
     masked_N = esc_mask * np.array(maps["Column_dens"])
     masked_Nd = esc_mask * np.array(maps["N_d"])
     relevant_N = masked_N[masked_N > 0]
@@ -21,12 +21,12 @@ def update_average_column_dens(df_prefix, map_prefix, snap_num):
     base_path = config["base_path"]
 
     df_name = f"{df_prefix}_{snap_num}.pickle"
-    maps_name = f"{map_prefix}_{snap_num}.pickle"
+    maps_name = f"{map_prefix}_{snap_num}.hdf5"
 
     sub_dir = get_snap(snap_num)
 
-    df_path = os.path.join(base_path, df_name)
-    maps_name = os.path.join(base_path, maps_name)
+    df_path = os.path.join(base_path, sub_dir, df_name)
+    maps_name = os.path.join(base_path, sub_dir, maps_name)
 
     df = pd.read_pickle(df_path)
     map_file = h5py.File(maps_name, "r")
@@ -37,7 +37,7 @@ def update_average_column_dens(df_prefix, map_prefix, snap_num):
     average_column_dens_dust = np.empty(len(df))
     average_column_dens_dust[:] = np.nan
 
-    for i, gal_id in enumerate(df.index()):
+    for i, gal_id in enumerate(df.index):
         maps = map_file[str(config["grid_size"])][str(gal_id)]
         average_N, average_Nd = get_average_column_dens(maps)
 
@@ -60,6 +60,7 @@ def update_column_dens_range(
     map_prefix=config["maps_name"],
 ):
     for i in range(snap_min, snap_max):
+        print(f"Working on snapshot {i}")
         update_average_column_dens(df_prefix, map_prefix, i)
     return
 
