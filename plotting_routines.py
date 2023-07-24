@@ -12,6 +12,7 @@ import os
 from utils import get_snap
 from matplotlib import colors
 from matplotlib.ticker import ScalarFormatter
+from config import config
 
 
 def plot_histogram(
@@ -766,15 +767,18 @@ def create_color_bar(
     ax_is_cbar=False,
     horizontal=False,
     gap=False,
+    prop="f_esc",
 ):
     if ax_is_cbar:
         if horizontal:
-            cbar = f.colorbar(subfig, cax=ax, orientation="horizontal")
-            ax.xaxis.set_ticks_position("top")
-            ax.xaxis.set_label_position("top")
+            cbar = f.colorbar(subfig, cax=ax)
+            # ax.xaxis.set_ticks_position("top")
+            # ax.xaxis.set_label_position("top")
 
         else:
-            cbar = f.colorbar(subfig, cax=ax)
+            cbar = f.colorbar(subfig, cax=ax, orientation="horizontal")
+            # ax.xaxis.set_ticks_position("top")
+            # ax.xaxis.set_label_position("top")
 
     else:
         divider = make_axes_locatable(ax)
@@ -782,7 +786,7 @@ def create_color_bar(
             pad = 10
         else:
             pad = 0.15
-        cax = divider.append_axes("top", size="5%", pad=pad)
+        cax = divider.append_axes("right", size="5%", pad=pad)
         cbar = f.colorbar(subfig, cax=cax)
 
     if label is not None:
@@ -797,7 +801,11 @@ def create_color_bar(
     else:
         ticksize = parameters["colorbar_ticklabelsize"]
     cbar.ax.tick_params(labelsize=ticksize)
-    # cbar.ax.set_yticks([0.5, 0.75, 1, 1.5, 2], labelsize=ticksize)
+    if prop != "f_esc":
+        if horizontal:
+            cbar.ax.set_yticks([0.5, 0.75, 1, 1.5, 2], labelsize=ticksize)
+        else:
+            cbar.ax.set_xticks([0.5, 0.75, 1, 1.5, 2], labelsize=ticksize)
 
     return
 
@@ -943,19 +951,19 @@ def log_mean(quant):
 
 def get_label(prop):
     prop_labels = {
-        "M_gas_sun_log": r"$\log \left(\frac{M_\mathrm{gas}}{M_\odot} \right)$",
-        "M_star_sun_log": r"$\log \left(\frac{M_\star}{M_\odot} \right)$",
-        "SFR": r"$\log \left( \frac{\mathrm{SFR}}{M_\odot \mathrm{yr}^{-1}} \right)$",
+        "M_gas_sun_log": r"$\log \left(M_\mathrm{gas}/\mathrm{M}_\odot \right)$",
+        "M_star_sun_log": r"$\log \left( M_\star/\mathrm{M}_\odot \right)$",
+        "SFR": r"$\log \left( \mathrm{SFR}/\mathrm{M}_\odot \mathrm{yr}^{-1} \right)$",
         "f_g": r"$f_g$",
         "f_g_crit": r"$f_{g, \mathrm{crit}}$",
         "Column_height": r"$\log(H/\mathrm{cm})$",
-        "Columns_dens": r"$\log \left(\frac{N_0}{cm^{-2}} \right)$",
-        "Columns_dens_stroemgren": r"$\log \left(\frac{N_S}{cm^{-2}} \right)$",
+        "Columns_dens": r"$\log \left(N_0/\mathrm{cm}^{-2} \right)$",
+        "Columns_dens_stroemgren": r"$\log \left(N_S/\mathrm{cm}^{-2} \right)$",
         "Metallicity": r"$\log(Z)$",
         "U": r"$\log(U)$",
         "N_d": r"$N_d$",
         # "N_ratio": r"$N_0/N_d$",
-        "N_ratio": r"$\tau_\mathrm{dust}$",
+        "N_ratio": r"$\tau_\mathrm{d}$",
         "z": "z",
         "f_esc": r"$\langle f_\mathrm{esc} \rangle$",
         "f_esc_model": r"$\langle f_\mathrm{esc,fit} \rangle$",
@@ -969,10 +977,11 @@ def get_label(prop):
         "TimeMinorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
         "TimeRecentMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
         "sSFR": r"$\log \left( \frac{\mathrm{sSFR}}{\mathrm{yr}^{-1}} \right)$",
-        "sZ": r"$\log(Z/M_\star)[\mathrm{M}_\odot^{-1}]$",
+        "sZ": r"$\log(\frac{Z/M_\star}{\mathrm{M}_\odot^{-1}})$",
         "MgasMstar": r"$\log(M_\mathrm{gas}/ M_\star)$",
         "color_prop": r"$\log(H/\mathrm{cm})$",
         "MassStarLog": r"$\log \left(\frac{M_\star}{M_\odot} \right)$",
+        "AverageColumnDens": r"$\log(N_0/\mathrm{cm}^{-2})$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1040,7 +1049,7 @@ def get_histogram(
 def get_color_limits(prop, statistic="mean", maps=False):
     limits = {
         "f_esc_model": (0.0, 0.1, 0.2),
-        "f_esc": (0.0, 0.3, 0.6),
+        "f_esc": (0.0, 0.1, 0.2),
         "f_g_crit": (0.0, 0.5, 1.0),
         "M_star_sun_log": (5.8, 8, 10),
         # Only works for column height
@@ -1095,6 +1104,8 @@ def prop_prop_histogram(
         color_prop = "color_prop"
     parameters = plot_parameters(params)
 
+    # filter = (df.M_star_sun_log > 6.8) & (df.M_star_sun_log < 7.2)
+    # df = df[filter]
     # Clean df
     # df.dropna(subset="f_g_crit", inplace=True)
 
@@ -1140,18 +1151,18 @@ def prop_prop_histogram(
     #     figsize=[parameters["figure_width"], parameters["figure_height"]]
     # )
     f, axs = plt.subplots(
-        ncols=1,
-        nrows=2,
+        ncols=2,
+        nrows=1,
         gridspec_kw={
             "hspace": 0.1,
-            "wspace": 0.25,  # 0.3 * 0.75 * len(props_of_interest),
-            # "width_ratios": [24, 1],
-            "height_ratios": [1.5, 24],
+            "wspace": 0.1,  # 0.3 * 0.75 * len(props_of_interest),
+            "width_ratios": [24, 1],
+            # "height_ratios": [1.5, 24],
         },
         figsize=[parameters["figure_width"], parameters["figure_height"]],
     )
-    ax = axs[1]
-    cax = axs[0]
+    ax = axs[0]
+    cax = axs[1]
     subfig = ax.pcolormesh(
         x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     )
@@ -1187,9 +1198,8 @@ def prop_prop_histogram(
     if add_line:
         x_edges = np.linspace(x_values.min(), x_values.max(), 20)
         x_centers = (x_edges[1:] + x_edges[:-1]) / 2
-        df.replace([0, -np.inf], np.nan).dropna(subset="Metallicity", axis=0)
-        df["test"] = np.log10(df[prop_x])
-        df["prop_bins"] = pd.cut(df["test"], x_edges, include_lowest=True)
+        # df.replace([0, -np.inf], np.nan).dropna(subset="Metallicity", axis=0)
+        df["prop_bins"] = pd.cut(df[prop_x], x_edges, include_lowest=True)
         groups = df.groupby(["prop_bins"])[prop_y]
 
         y_prop_std = groups.std()
@@ -1208,7 +1218,7 @@ def prop_prop_histogram(
 
         ax2 = ax.twinx()
         # prop = r"$M_\mathrm{gas}/M_\star$"
-        prop = r"$H$"
+        prop = r"$\langle \log(N_0) \rangle$"
         ax2.errorbar(
             x_centers,
             y_prop_means,
@@ -1220,19 +1230,18 @@ def prop_prop_histogram(
             label=rf"$\langle${prop}$\rangle(T_\mathrm{{merger}})$",
         )
         ax2.set_ylabel(
-            rf"$\langle${prop}$\rangle[\mathrm{{cm}}]$",  # /\mathrm{{cm}})$",
+            prop,  # /\mathrm{{cm}})$",
             size=parameters["labelsize"],
         )
-        # ax2.set_ylim(21.1, 21.35)
+        ax2.set_ylim(0.0, 2.6)
         y_range = y_prop_means.max() - y_prop_means.min()
         # ax2.set_ylim(
         #     y_prop_means.min() - 0.2 * y_range,
         #     y_prop_means.max() + 0.2 * y_range,
         # )
-        ax2.set_ylim(-4, -2)
 
         set_ax_params(ax2, parameters)
-        ax2.legend(fontsize=parameters["legendsize"])
+        # ax2.legend(fontsize=parameters["legendsize"])
         ax2.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
         ax2.yaxis.offsetText.set_fontsize(parameters["colorbar_ticklabelsize"])
 
@@ -1246,8 +1255,8 @@ def prop_prop_histogram(
     # ax.legend(fontsize=parameters["legendsize"])
     set_ax_params(ax, parameters)
 
-    # ax.set_xlim(1e21, 1e22)
-    # ax.set_ylim(1e21, 2e21)
+    # ax.set_xlim(6, 10.5)
+    # ax.set_ylim(20.3, 22.3)
     return
 
 
@@ -1261,7 +1270,8 @@ def fesc_Mstar(
 ):
     parameters = plot_parameters(params)
     g_to_msun = (1 * u.g).to(u.M_sun)
-    df.dropna(subset="f_esc", inplace=True)
+    avg_prop = "f_esc_model"
+    df.dropna(subset=avg_prop, inplace=True)
     if x_prop == "TimeMajorMerger":
         df = df.replace([np.inf, -np.inf], np.nan).dropna(axis=0)
 
@@ -1272,12 +1282,12 @@ def fesc_Mstar(
 
     z_values = df["z"].unique()[::-1]
     if em_weighted:
-        df["f_esc_weighted"] = df["f_esc"] * df["Ion_em"]
+        df["f_esc_weighted"] = df[avg_prop] * df["Ion_em"]
         f_esc_weighted = df.groupby(["z", "mass_bins"])["f_esc_weighted"].sum()
         Ion_em = df.groupby(["z", "mass_bins"])["Ion_em"].sum()
         f_esc_means = f_esc_weighted / Ion_em
     else:
-        groups = df.groupby(["z", "mass_bins"])["f_esc"]
+        groups = df.groupby(["z", "mass_bins"])[avg_prop]
         f_esc_means = groups.mean()
         f_esc_std = groups.std()
         f_esc_count = groups.count()
@@ -1307,31 +1317,42 @@ def fesc_Mstar(
                 )
 
     label_x = get_label(x_prop)
-    label_y = r"$\langle f_\mathrm{esc} \rangle$"
+    label_y = r"$\langle f_\mathrm{esc, fit} \rangle$"
 
     ax.set_xlabel(label_x, size=parameters["labelsize"])
     ax.set_ylabel(label_y, size=parameters["labelsize"])
     set_ax_params(ax, parameters)
     ax.legend(fontsize=parameters["legendsize"])
     if x_prop == "M_star_sun_log":
-        ax.set_xlim(5.8)
-        ax.set_ylim(0, 0.2)
+        ax.set_xlim(5.8, 10.5)
+        ax.set_ylim(0, 0.25)
         ax.set_yticks([0, 0.05, 0.1, 0.15, 0.2])
     elif x_prop == "M_gas_sun_log":
-        ax.set_xlim(6.7, 9.5)
-        ax.set_ylim(0, 0.2)
+        ax.set_xlim(6.7, 9.7)
+        ax.set_ylim(0, 0.25)
     return
 
 
 def get_hdf(df, z, hdf_prefix):
     all_z = df["z"].unique()
     snap_num = int(np.where(all_z == z)[0])
-    base_path = "/ptmp/mpa/ivkos/semianalytic_fesc"
+    base_path = config["base_path"]
     snap = get_snap(snap_num)
     hdf_name = f"{hdf_prefix}{snap_num}.hdf5"
     origin_path_hdf = os.path.join(base_path, snap, hdf_name)
     f = h5py.File(origin_path_hdf)
     return f
+
+
+def get_convergence_maps(hdf, halo_idx, prop):
+    maps = {}
+    for key in hdf.keys():
+        if key == "3":
+            continue
+        if key == "None":
+            continue
+        maps[float(key)] = hdf[key][str(halo_idx)][prop]
+    return maps
 
 
 def get_convergence_maps(hdf, halo_idx, prop):
@@ -1446,6 +1467,7 @@ def plot_prop_maps(
         )
 
     if type == "single_halo":
+        maps = {}
         maps[halo_num] = get_image(df, halo_num, hdf_prefix, prop, grid_size)
 
     vmin, vcenter, vmax = get_color_limits(prop, maps=True)
@@ -1463,6 +1485,21 @@ def plot_prop_maps(
             parameters["height_per_image"],
         )
         fig, ax = plt.subplots(figsize=figsize)
+        subfig = ax.pcolormesh(
+            maps[halo_num],
+            cmap=colormaps["inferno"],
+            norm=col_norm,
+            # cmap=colormaps["coolwarm"],
+        )
+        create_color_bar(
+            fig,
+            ax,
+            parameters,
+            subfig,
+            multiple=False,
+            ax_is_cbar=False,
+            horizontal=True,
+        )
     else:
         image_columns = 3
         image_rows = int(np.ceil(len(maps.keys()) / image_columns / skip))
@@ -1546,6 +1583,7 @@ def plot_prop_maps(
                         multiple=True,
                         ax_is_cbar=True,
                         horizontal=horizontal,
+                        prop=prop,
                     )
                 ax.get_xaxis().set_visible(False)
                 ax.get_yaxis().set_visible(False)
@@ -1719,7 +1757,13 @@ def lineplots(
             if i % skip == 0:
                 lower = f"{bin.left:.1f}"
                 upper = f"{bin.right:.1f}"
-                label = "$M_\star=10^{" + lower + "}-10^{" + upper + "}$"
+                label = (
+                    "$M_\star=10^{"
+                    + lower
+                    + "}-10^{"
+                    + upper
+                    + "} \mathrm{{M}}_\odot$"
+                )
                 ax.errorbar(
                     x_centers,
                     y_prop_means[bin],
@@ -1743,6 +1787,7 @@ def lineplots(
             )
 
     if two_modes:
+        print("here")
         ax.errorbar(
             x_centers,
             y_prop_means1,
@@ -1765,15 +1810,16 @@ def lineplots(
         )
 
     else:
-        ax.errorbar(
-            x_centers,
-            y_prop_means,
-            yerr=y_prop_err,
-            capsize=parameters["capsize"],
-            capthick=parameters["capwidth"],
-            linewidth=parameters["linewidth"],
-            color="red",
-        )
+        if all:
+            ax.errorbar(
+                x_centers,
+                y_prop_means,
+                yerr=y_prop_err,
+                capsize=parameters["capsize"],
+                capthick=parameters["capwidth"],
+                linewidth=parameters["linewidth"],
+                color="red",
+            )
 
     if x_log:
         label_x = get_label(x_prop_org)
@@ -1797,7 +1843,7 @@ def plot_sample(df, mode, prop="f_esc", props_of_interest=[]):
         "high_sfr": [109259, 413819, 559133],
         "center": [514694, 32983, 417607],
         "extensive_escape": [347141, 345611, 355525],
-        "localize_escape": [213376, 604648, 592453],
+        "localized_escape": [213376, 604648, 592453],
     }
     plot_prop_maps(
         df,
@@ -1815,3 +1861,275 @@ def plot_sample(df, mode, prop="f_esc", props_of_interest=[]):
         horizontal=True,
     )
     return
+
+
+def histograms_plot(
+    full_df,
+    color_prop="f_esc",
+    statistic="mean",
+    bins_x=30,
+    bins_y=30,
+    params=None,
+    contour=True,
+    add_line=False,
+):
+    prop_x = "TimeMajorMerger"
+    # mass_filter = (full_df.M_star_sun_log > 6.8) & (
+    #     full_df.M_star_sun_log < 7.2
+    # )
+
+    mass_filter = (full_df.M_star_sun_log > 6.0) & (
+        full_df.M_star_sun_log < 6.2
+    )
+
+    full_df = full_df[mass_filter]
+    filter_low = np.log10(full_df["Column_height"]) < 21
+    filter_high = np.log10(full_df["Column_height"]) > 21
+
+    y_dict = {
+        "Column_height_low": {
+            "filter": filter_low,
+            "prop": "Column_height",
+            "ax": "height_low",
+            "line_log": True,
+            "label_prop": r"$\log(\langle H \rangle)$",
+            "yrange": (20.1, 22.2),
+            "grid": (20, 7),
+            "avg_lim": (20.69, 21.5),
+        },
+        "sSFR_low": {
+            "filter": filter_low,
+            "prop": "sSFR",
+            "ax": "sSFR_low",
+            "line_log": True,
+            "label_prop": r"$\log(\langle \mathrm{sSFR}\rangle)$",
+            "yrange": (-9.5, -7.6),
+            "grid": (25, 25),
+            "avg_lim": (-8.9, -8.05),
+        },
+        "MgasMstar_low": {
+            "filter": filter_low,
+            "prop": "MgasMstar",
+            "ax": "Ratio_low",
+            "line_log": True,
+            "label_prop": r"$\log(\langle M_\mathrm{gas}/M_\star \rangle )$",
+            "yrange": (-0.6, 2.4),
+            "grid": (20, 15),
+            "avg_lim": (0.45, 1.55),
+        },
+        "sZ_low": {
+            "filter": filter_low,
+            "prop": "sZ",
+            "ax": "sZ_low",
+            "line_log": True,
+            "label_prop": r"$\log(\langle Z/M_\star \rangle)$",
+            "yrange": (-10.6, -8.9),
+            "grid": (20, 20),
+            # "avg_lim": (-9.95, -9.15),
+            "avg_lim": (-9.3, -8.9),
+        },
+        "Column_height_high": {
+            "filter": filter_high,
+            "prop": "Column_height",
+            "ax": "height_high",
+            "line_log": True,
+            "label_prop": r"$\log(\langle H \rangle)$",
+            "yrange": (20.1, 22.2),
+            "grid": (20, 10),
+            "avg_lim": (20.69, 21.5),
+        },
+        "sSFR_high": {
+            "filter": filter_high,
+            "prop": "sSFR",
+            "ax": "sSFR_high",
+            "line_log": True,
+            "label_prop": r"$\log(\langle \mathrm{sSFR}\rangle)$",
+            "yrange": (-9.5, -7.6),
+            "grid": (25, 25),
+            "avg_lim": (-8.9, -8.05),
+        },
+        "MgasMstar_high": {
+            "filter": filter_high,
+            "prop": "MgasMstar",
+            "ax": "Ratio_high",
+            "line_log": True,
+            "label_prop": r"$\log(\langle M_\mathrm{gas}/M_\star \rangle )$",
+            "yrange": (-0.6, 2.4),
+            "grid": (20, 20),
+            "avg_lim": (0.45, 1.55),
+        },
+        "sZ_high": {
+            "filter": filter_high,
+            "prop": "sZ",
+            "ax": "sZ_high",
+            "line_log": True,
+            "label_prop": r"$\log(\langle Z/M_\star \rangle)$",
+            "yrange": (-10.6, -8.9),
+            "grid": (20, 20),
+            # "avg_lim": (-9.95, -9.15),
+            "avg_lim": (-9.3, -8.9),
+        },
+    }
+
+    parameters = plot_parameters(params)
+    parameters["colorbar_ticklabelsize"] = 20
+    parameters["colorbar_labelsize"] = 30
+
+    full_df = full_df.replace(
+        {"TimeMajorMerger": [np.inf, -np.inf]}, np.nan
+    ).dropna(subset="TimeMajorMerger", axis=0)
+
+    f, axs = plt.subplot_mosaic(
+        [
+            ["colorbar", "colorbar"],
+            ["ghost", "ghost"],
+            ["height_low", "height_high"],
+            ["sSFR_low", "sSFR_high"],
+            ["Ratio_low", "Ratio_high"],
+            ["sZ_low", "sZ_high"],
+        ],
+        sharey=False,
+        sharex=False,
+        gridspec_kw={
+            "hspace": 0,
+            "width_ratios": [24, 24],
+            "height_ratios": [1.5, 1.0, 24, 24, 24, 24],
+            "wspace": 0,
+        },
+        figsize=[15, 24],
+    )
+    # axs["height_low"].get_shared_x_axes().join(
+    #     axs["height_low"], axs["height_high"]
+    # )
+
+    axs["ghost"].axis("off")
+
+    for y_prop in y_dict:
+        prop_y = y_dict[y_prop]["prop"]
+        df = full_df.loc[y_dict[y_prop]["filter"]]
+        y_values = df[y_dict[y_prop]["prop"]]
+        y_values = np.ma.masked_invalid(np.log10(y_values))
+        x_values = df.loc[:, prop_x]
+        bins_x, bins_y = y_dict[y_prop]["grid"]
+        x_edges = np.linspace(x_values.min(), x_values.max(), bins_x)
+        y_edges = np.linspace(y_values.min(), y_values.max(), bins_y)
+
+        hist, hist_cont, xedges_cont, yedges_cont = get_histogram(
+            df,
+            x_values,
+            y_values,
+            bins=[x_edges, y_edges],
+            color_prop=color_prop,
+            statistic=statistic,
+        )
+        cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
+        cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
+        x_grid, y_grid = np.meshgrid(x_edges, y_edges)
+        vmin, vcenter, vmax = get_color_limits(color_prop, statistic)
+        col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+
+        ax = axs[y_dict[y_prop]["ax"]]
+        if "high" in y_prop:
+            ax.yaxis.set_tick_params(labelleft=False)
+            ax.set_yticks([])
+
+        if "sZ" not in y_prop:
+            ax.xaxis.set_tick_params(labelbottom=False, bottom=False)
+
+        subfig = ax.pcolormesh(
+            x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
+        )
+
+        levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
+        if contour:
+            ax.contour(
+                cont_centers_x,
+                cont_centers_y,
+                hist_cont.T,
+                levels=levels,
+                linewidths=4,
+                linestyles=["dotted", "dashed", "solid"],
+                colors="lightblue",
+            )
+
+        if add_line:
+            x_edges = np.linspace(x_values.min(), x_values.max(), 20)
+            x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+            df["prop_bins"] = pd.cut(
+                df.loc[:, prop_x], x_edges, include_lowest=True
+            )
+            groups = df.groupby(["prop_bins"])[prop_y]
+
+            y_prop_std = groups.std()
+            y_prop_count = groups.count()
+            if y_dict[y_prop]["line_log"]:
+                y_prop_means = groups.apply(
+                    lambda x: np.log10(x.mean()) if x.count() > 5 else np.nan
+                )
+                y_prop_err = (
+                    1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
+                )
+
+            else:
+                y_prop_means = groups.apply(
+                    lambda x: x.mean() if x.count() > 5 else np.nan
+                )
+                y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+
+            ax2 = ax.twinx()
+            prop = y_dict[y_prop]["label_prop"]
+            ax2.errorbar(
+                x_centers,
+                y_prop_means,
+                yerr=y_prop_err,
+                capthick=parameters["capwidth"],
+                capsize=5,
+                linew8idth=parameters["linewidth"],
+                color="lime",
+            )
+            ax2.set_ylabel(
+                prop,
+                size=30,
+            )
+            ax2.set_ylim(y_dict[y_prop]["avg_lim"])
+            if "low" in y_prop:
+                ax2.yaxis.set_tick_params(labelright=False)
+                ax2.set_yticks([])
+                ax2.set_ylabel("")
+
+            set_ax_params(ax2, parameters)
+
+        labelsize = 30
+        ax.set_xlabel(get_label(prop_x), size=labelsize)
+        if "low" in y_prop:
+            ax.set_ylabel(get_label(y_dict[y_prop]["prop"]), size=labelsize)
+        set_ax_params(ax, parameters)
+        # ax.set_yticks([19, 20, 21, 22])
+        ax.set_ylim(y_dict[y_prop]["yrange"])
+        ax.set_xlim(0, 800)
+
+        ax.set_xticks([0, 200, 400, 600])
+
+    color_label = get_label(color_prop)
+    create_color_bar(
+        f,
+        axs["colorbar"],
+        parameters,
+        subfig,
+        label=color_label,
+        gap=True,
+        ax_is_cbar=True,
+        horizontal=True,
+    )
+    return
+
+
+def get_convergence_maps(hdf, halo_idx, prop):
+    maps = {}
+    for key in hdf.keys():
+        if key == "3":
+            continue
+        if key == "None":
+            continue
+        maps[float(key)] = hdf[key][str(halo_idx)][prop]
+    return maps
