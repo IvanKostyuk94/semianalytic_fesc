@@ -10,11 +10,17 @@ def get_average_column_dens(maps):
     esc_mask = np.array(maps["f_esc"]) > 0
     masked_N = esc_mask * np.array(maps["Column_dens"])
     masked_Nd = esc_mask * np.array(maps["N_d"])
+    masked_NS = esc_mask * np.array(maps["Column_dens_stroemgren"])
+
     relevant_N = masked_N[masked_N > 0]
     relevant_Nd = masked_Nd[masked_Nd > 0]
+    relevant_NS = masked_NS[masked_NS > 0]
+
     average_N = relevant_N.sum() / len(relevant_N)
     average_Nd = relevant_Nd.sum() / len(relevant_Nd)
-    return average_N, average_Nd
+    average_NS = relevant_NS.sum() / len(relevant_NS)
+
+    return average_N, average_Nd, average_NS
 
 
 def update_average_column_dens(df_prefix, map_prefix, snap_num):
@@ -37,17 +43,22 @@ def update_average_column_dens(df_prefix, map_prefix, snap_num):
     average_column_dens_dust = np.empty(len(df))
     average_column_dens_dust[:] = np.nan
 
+    average_ionizable_column_dens = np.empty(len(df))
+    average_ionizable_column_dens[:] = np.nan
+
     for i, gal_id in enumerate(df.index):
         maps = map_file[str(config["grid_size"])][str(gal_id)]
-        average_N, average_Nd = get_average_column_dens(maps)
+        average_N, average_Nd, average_NS = get_average_column_dens(maps)
 
         average_column_dens[i] = average_N
         average_column_dens_dust[i] = average_Nd
+        average_ionizable_column_dens[i] = average_NS
 
     map_file.close()
 
     df["AverageColumnDens"] = average_column_dens
     df["AverageColumnDensDust"] = average_column_dens_dust
+    df["AverageIonizableColumnDens"] = average_ionizable_column_dens
 
     df.to_pickle(df_path)
     return
