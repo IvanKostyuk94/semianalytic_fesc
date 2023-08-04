@@ -1,8 +1,11 @@
 import os
 import numpy as np
 import pandas as pd
+from functools import partial
 import illustris_python as il
 from astropy import units as u
+from itertools import repeat
+from multiprocessing import Pool
 from pyTNG.cosmology import TNGcosmo
 from config import config
 from utils import scale_factor, get_redshift, get_sim, get_snap
@@ -50,8 +53,13 @@ def center_of_sfr_mass(gas):
     gas_masses = gas["Mass_g"][gas_used]
     gas_coord = gas["RelativePosition_cm"][gas_used]
 
-    center_of_mass = np.average(gas_coord, axis=0, weights=gas_masses)
-    center_of_sfr = np.average(gas_coord, axis=0, weights=gas_sfr)
+    if gas_used.sum() > 0:
+        center_of_mass = np.average(gas_coord, axis=0, weights=gas_masses)
+        center_of_sfr = np.average(gas_coord, axis=0, weights=gas_sfr)
+
+    else:
+        center_of_mass = np.nan
+        center_of_sfr = np.nan
 
     return center_of_mass, center_of_sfr
 
@@ -63,7 +71,8 @@ def gas_flow(gas):
         / np.linalg.norm(gas["RelativePosition_cm"], axis=1)
     ).T
     directional_momentum = np.multiply(gas_momentum, directions).sum(axis=1)
-    flow = directional_momentum.sum() / gas_momentum.sum()
+    gas_abs_mom = np.linalg.norm(gas_momentum, axis=1)
+    flow = directional_momentum.sum() / gas_abs_mom.sum()
     return flow
 
 
@@ -74,26 +83,34 @@ def velocities(gas, angular_momentum):
     gas_masses = gas["Mass_g"][gas_used]
     gas_coord = gas["RelativePosition_cm"][gas_used]
 
-    tot_vel = np.average(gas_velocities, axis=0, weights=gas_masses)
-    rel_gas_velocities = gas_velocities - tot_vel
+    if gas_used.sum() > 0:
+        tot_vel = np.average(gas_velocities, axis=0, weights=gas_masses)
+        rel_gas_velocities = gas_velocities - tot_vel
 
-    _, sfr_weighted_std = get_weighted_mean_std(
-        rel_gas_velocities, weights=gas_sfr
-    )
-    _, mass_weighted_std = get_weighted_mean_std(
-        rel_gas_velocities, weights=gas_masses
-    )
+        _, sfr_weighted_std = get_weighted_mean_std(
+            rel_gas_velocities, weights=gas_sfr
+        )
+        _, mass_weighted_std = get_weighted_mean_std(
+            rel_gas_velocities, weights=gas_masses
+        )
 
-    abs_sigma_sfr = np.linalg.norm(sfr_weighted_std) / np.sqrt(3)
-    abs_sigma_mass = np.linalg.norm(mass_weighted_std) / np.sqrt(3)
+        abs_sigma_sfr = np.linalg.norm(sfr_weighted_std) / np.sqrt(3)
+        abs_sigma_mass = np.linalg.norm(mass_weighted_std) / np.sqrt(3)
 
-    rot_dirs = np.cross(gas_coord, angular_momentum)
-    rot_dirs_norm = (rot_dirs.T / np.linalg.norm(rot_dirs, axis=1)).T
+        rot_dirs = np.cross(gas_coord, angular_momentum)
+        rot_dirs_norm = (rot_dirs.T / np.linalg.norm(rot_dirs, axis=1)).T
 
-    directional_vel = np.abs(
-        np.multiply(rel_gas_velocities, rot_dirs_norm).sum(axis=1)
-    )
-    v_max = np.sort(directional_vel)[-2]
+        directional_vel = np.abs(
+            np.multiply(rel_gas_velocities, rot_dirs_norm).sum(axis=1)
+        )
+        if len(directional_vel) > 3:
+            v_max = np.sort(directional_vel)[-2]
+        else:
+            v_max = np.sort(directional_vel)[0]
+    else:
+        abs_sigma_sfr = np.nan
+        abs_sigma_mass = np.nan
+        v_max = np.nan
     return abs_sigma_sfr, abs_sigma_mass, v_max
 
 
@@ -103,46 +120,8 @@ def get_weighted_mean_std(values, weights):
     return mean, np.sqrt(var)
 
 
-def get_prop_dict(df, idx, snap_num):
-    sim, sim_path = get_sim()
-    z = get_redshift(sim, snap_num)
-    gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
-    get_relative_coord(gas, df, idx)
-    sphere_gas = select_sphere_gas(gas, df, idx, z, is_relative=True)
-    get_pos_cm(sphere_gas, z)
-    get_pec_vel(sphere_gas, z)
-    mass_to_g(sphere_gas)
-
-    prop_dict = {}
-    prop_dict["idx"] = idx
-    prop_dict["flow"] = gas_flow(sphere_gas)
-    ang_mom = angular_momentum(sphere_gas)
-    prop_dict["ang_momentum"] = np.linalg.norm(ang_mom)
-    cent_mass = center_of_mass(sphere_gas)
-    center_of_sfr_mass_value, center_of_sfr_sfr_value = center_of_sfr_mass(
-        sphere_gas
-    )
-    sfr_mass_to_center_mass = np.linalg.norm(
-        cent_mass - center_of_sfr_mass_value
-    )
-    sfr_sfr_to_center_mass = np.linalg.norm(
-        cent_mass - center_of_sfr_sfr_value
-    )
-    prop_dict["sfr_mass_to_center_mass"] = sfr_mass_to_center_mass
-    prop_dict["sfr_sfr_to_center_mass"] = sfr_sfr_to_center_mass
-    abs_sigma_sfr, abs_sigma_mass, v_max = velocities(sphere_gas, ang_mom)
-    prop_dict["abs_sigma_sfr"] = abs_sigma_sfr
-    prop_dict["abs_sigma_mass"] = abs_sigma_mass
-    prop_dict["v_max"] = v_max
-    return prop_dict
-
-
-def expand_prop_values(df_prefix, snap_num, base_path):
-    snap = get_snap(snap_num)
-    dir_path = os.path.join(base_path, snap)
-    df_name = f"{df_prefix}_{str(snap_num)}.pickle"
-    df_path = os.path.join(dir_path, df_name)
-    df = pd.read_pickle(df_path)
+def get_prop_dicts(idces, df, snap_num):
+    results = []
     keys = [
         "idx",
         "flow",
@@ -153,18 +132,83 @@ def expand_prop_values(df_prefix, snap_num, base_path):
         "abs_sigma_mass",
         "v_max",
     ]
-    full_dict = {}
-    for key in keys:
-        full_dict[key] = np.empty(len(df))
-        full_dict[key][:] = np.nan
+    for idx in idces:
+        idx = int(idx)
+        sim, sim_path = get_sim()
+        z = get_redshift(sim, snap_num)
+        gas = il.snapshot.loadSubhalo(sim_path, snap_num, idx, "gas")
+        get_relative_coord(gas, df, idx)
+        sphere_gas = select_sphere_gas(gas, df, idx, z, is_relative=True)
+        prop_dict = {}
+        if sphere_gas["count"] == 0:
+            for key in keys:
+                prop_dict[key] = np.nan
+        else:
+            get_pos_cm(sphere_gas, z)
+            get_pec_vel(sphere_gas, z)
+            mass_to_g(sphere_gas)
 
-    for i, galaxy in enumerate(df.index):
-        prop_dict = get_prop_dict(df, galaxy, snap_num)
-        for key in keys:
-            full_dict[key][i] = prop_dict[key]
+            prop_dict["idx"] = idx
+            prop_dict["flow"] = gas_flow(sphere_gas)
+            ang_mom = angular_momentum(sphere_gas)
+            prop_dict["ang_momentum"] = np.linalg.norm(ang_mom)
+            cent_mass = center_of_mass(sphere_gas)
+            (
+                center_of_sfr_mass_value,
+                center_of_sfr_sfr_value,
+            ) = center_of_sfr_mass(sphere_gas)
+            sfr_mass_to_center_mass = np.linalg.norm(
+                cent_mass - center_of_sfr_mass_value
+            )
+            sfr_sfr_to_center_mass = np.linalg.norm(
+                cent_mass - center_of_sfr_sfr_value
+            )
+            prop_dict["sfr_mass_to_center_mass"] = sfr_mass_to_center_mass
+            prop_dict["sfr_sfr_to_center_mass"] = sfr_sfr_to_center_mass
+            abs_sigma_sfr, abs_sigma_mass, v_max = velocities(
+                sphere_gas, ang_mom
+            )
+            prop_dict["abs_sigma_sfr"] = abs_sigma_sfr
+            prop_dict["abs_sigma_mass"] = abs_sigma_mass
+            prop_dict["v_max"] = v_max
+        results.append(prop_dict)
+    return results
+
+
+def expand_prop_values(df_prefix, snap_num, base_path, Nproc):
+    snap = get_snap(snap_num)
+    dir_path = os.path.join(base_path, snap)
+    df_name = f"{df_prefix}_{str(snap_num)}.pickle"
+    df_path = os.path.join(dir_path, df_name)
+    test_save = f"test_{snap_num}.pickle"
+    save_path = os.path.join(dir_path, test_save)
+    df = pd.read_pickle(df_path)
+    keys = [
+        "flow",
+        "ang_momentum",
+        "sfr_mass_to_center_mass",
+        "sfr_sfr_to_center_mass",
+        "abs_sigma_sfr",
+        "abs_sigma_mass",
+        "v_max",
+    ]
     for key in keys:
-        df[key] = full_dict[key]
-    df.to_pickle(df_path)
+        df[key] = np.empty(len(df))
+        df.loc[:, key] = np.nan
+
+    idces = np.array(df.index, dtype="int")
+    np.random.shuffle(idces)
+    chunks = np.array_split(idces, Nproc)
+    get_prop_dict_snap = partial(get_prop_dicts, df=df, snap_num=snap_num)
+
+    with Pool(Nproc) as executor:
+        pool_results = executor.map(get_prop_dict_snap, chunks)
+
+    for result in pool_results:
+        for element in result:
+            for key in keys:
+                df.loc[element["idx"], key] = element[key]
+    df.to_pickle(save_path)
     return
 
 
@@ -173,12 +217,13 @@ def update_prop_values_range(
     snap_max,
     df_prefix=config["df_name"],
     base_path=config["base_path"],
+    Nproc=40,
 ):
     for i in range(snap_min, snap_max):
         print(f"Working on snapshot {i}")
-        expand_prop_values(df_prefix, i, base_path)
+        expand_prop_values(df_prefix, i, base_path, Nproc)
     return
 
 
 if __name__ == "__main__":
-    update_prop_values_range(2, 3)
+    update_prop_values_range(12, 17)
