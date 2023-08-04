@@ -777,8 +777,8 @@ def create_color_bar(
 
         else:
             cbar = f.colorbar(subfig, cax=ax, orientation="horizontal")
-            # ax.xaxis.set_ticks_position("top")
-            # ax.xaxis.set_label_position("top")
+            ax.xaxis.set_ticks_position("top")
+            ax.xaxis.set_label_position("top")
 
     else:
         divider = make_axes_locatable(ax)
@@ -973,15 +973,17 @@ def get_label(prop):
         # "N_S_ratio": r"$N_0/N_S$",
         "N_S_ratio": r"$\tau_\mathrm{HI}$",
         "Ion_flux": r"$\log (F_i/\mathrm{cm}^{-2})$",
-        "TimeMajorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
-        "TimeMinorMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
-        "TimeRecentMerger": r"$T_\mathrm{merger}[\mathrm{Myr}]$",
+        "TimeMajorMerger": r"$t_\mathrm{merger}[\mathrm{Myr}]$",
+        "TimeMinorMerger": r"$t_\mathrm{merger}[\mathrm{Myr}]$",
+        "TimeRecentMerger": r"$t_\mathrm{merger}[\mathrm{Myr}]$",
         "sSFR": r"$\log \left( \frac{\mathrm{sSFR}}{\mathrm{yr}^{-1}} \right)$",
         "sZ": r"$\log(\frac{Z/M_\star}{\mathrm{M}_\odot^{-1}})$",
         "MgasMstar": r"$\log(M_\mathrm{gas}/ M_\star)$",
         "color_prop": r"$\log(H/\mathrm{cm})$",
         "MassStarLog": r"$\log \left(\frac{M_\star}{M_\odot} \right)$",
         "AverageColumnDens": r"$\log(N_0/\mathrm{cm}^{-2})$",
+        "Dist_5": r"$\log( d_5 / \mathrm{kpc})$ ",
+        "v_sigma": r"$v_\mathrm{max}/\sigma_v$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1151,25 +1153,25 @@ def prop_prop_histogram(
     #     figsize=[parameters["figure_width"], parameters["figure_height"]]
     # )
     f, axs = plt.subplots(
-        ncols=2,
-        nrows=1,
+        ncols=1,
+        nrows=2,
         gridspec_kw={
             "hspace": 0.1,
             "wspace": 0.1,  # 0.3 * 0.75 * len(props_of_interest),
-            "width_ratios": [24, 1],
-            # "height_ratios": [1.5, 24],
+            # "width_ratios": [24, 1],
+            "height_ratios": [1.5, 24],
         },
         figsize=[parameters["figure_width"], parameters["figure_height"]],
     )
-    ax = axs[0]
-    cax = axs[1]
+    ax = axs[1]
+    cax = axs[0]
     subfig = ax.pcolormesh(
         x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
     )
     # subfig = ax.pcolormesh(
     #     x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("plasma")
     # )
-    levels = get_levels(hist_cont, thresholds=[0.997, 0.954, 0.683])
+    levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
     if contour:
         ax.contour(
             cont_centers_x,
@@ -1192,7 +1194,7 @@ def prop_prop_histogram(
         label=color_label,
         gap=True,
         ax_is_cbar=True,
-        horizontal=True,
+        horizontal=False,
     )
 
     if add_line:
@@ -1218,7 +1220,10 @@ def prop_prop_histogram(
 
         ax2 = ax.twinx()
         # prop = r"$M_\mathrm{gas}/M_\star$"
-        prop = r"$\langle \log(N_0) \rangle$"
+        # prop = r"$\langle (\log( d_5 ) \rangle$"
+        prop = r"$\langle v_\mathrm{max}/\sigma_v \rangle$"
+
+        color = "red"
         ax2.errorbar(
             x_centers,
             y_prop_means,
@@ -1226,14 +1231,16 @@ def prop_prop_histogram(
             capsize=parameters["capsize"],
             capthick=parameters["capwidth"],
             linewidth=parameters["linewidth"],
-            color="lime",
+            color=color,
             label=rf"$\langle${prop}$\rangle(T_\mathrm{{merger}})$",
         )
         ax2.set_ylabel(
             prop,  # /\mathrm{{cm}})$",
             size=parameters["labelsize"],
         )
-        ax2.set_ylim(0.0, 2.6)
+        ax2.set_ylim(3, 3.8)
+        ax2.yaxis.label.set_color(color)
+        ax2.tick_params(axis="y", colors=color)
         y_range = y_prop_means.max() - y_prop_means.min()
         # ax2.set_ylim(
         #     y_prop_means.min() - 0.2 * y_range,
@@ -1256,7 +1263,7 @@ def prop_prop_histogram(
     set_ax_params(ax, parameters)
 
     # ax.set_xlim(6, 10.5)
-    # ax.set_ylim(20.3, 22.3)
+    # ax.set_ylim(0.9, 3.1)
     return
 
 
@@ -1649,6 +1656,9 @@ def get_average_values(groups, log=False, em_weighted=False, df=None):
         y_prop_count = groups.count()
         y_prop_err = y_prop_std / np.sqrt(y_prop_count)
 
+    # for key in y_prop_means.keys():
+    #     print(len(y_prop_means[key]))
+
     return y_prop_means, y_prop_err
 
 
@@ -1703,7 +1713,7 @@ def lineplots(
         groups = df.groupby(["z", "prop_bins"])[y_prop]
         if all:
             groups_all = df.groupby(["prop_bins"])[y_prop]
-    if with_mass_bins:
+    elif with_mass_bins:
         df = df[(df.M_star_sun_log > 6) & (df.M_star_sun_log < 9)]
         stellar_mass_bins = pd.cut(df.M_star_sun_log, bins=20)
         df["mass_bins"] = stellar_mass_bins
@@ -1737,57 +1747,71 @@ def lineplots(
         )
 
     f, ax = plt.subplots(
-        figsize=[parameters["figure_width"], parameters["figure_height"]]
+        figsize=[parameters["figure_width"] * 1.6, parameters["figure_height"]]
     )
 
     if individual_z:
+        norm = plt.Normalize(5, 11)
         for i, z in enumerate(z_values):
             if i % skip == 0:
                 ax.errorbar(
                     x_centers,
                     y_prop_means[z],
                     yerr=y_prop_err[z],
-                    label=f"z={z:.1f}",
+                    # label=f"z={z:.1f}",
+                    color=plt.cm.plasma(norm(z)),
                     capsize=parameters["capsize"],
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
                 )
+        cbar = plt.colorbar(
+            plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
+        )
+        cbar.set_label("$z$", size=parameters["labelsize"])
+        cbar.ax.tick_params(labelsize=30)
     if with_mass_bins:
+        norm = plt.Normalize(df.M_star_sun_log.min(), df.M_star_sun_log.max())
         for i, bin in enumerate(bin_groups):
             if i % skip == 0:
-                lower = f"{bin.left:.1f}"
-                upper = f"{bin.right:.1f}"
-                label = (
-                    "$M_\star=10^{"
-                    + lower
-                    + "}-10^{"
-                    + upper
-                    + "} \mathrm{{M}}_\odot$"
-                )
+                # lower = f"{bin.left:.1f}"
+                # upper = f"{bin.right:.1f}"
+                # label = (
+                #     "$M_\star=10^{"
+                #     + lower
+                #     + "}-10^{"
+                #     + upper
+                #     + "} \mathrm{{M}}_\odot$"
+                # )
+                mass = (bin.right + bin.left) / 2
                 ax.errorbar(
                     x_centers,
                     y_prop_means[bin],
                     yerr=y_prop_err[bin],
-                    label=label,
+                    color=plt.cm.plasma(norm(mass)),
+                    # label=label,
                     capsize=parameters["capsize"],
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
                 )
-        if all:
-            factor = 1.5
-            ax.errorbar(
-                x_centers,
-                y_prop_means_all,
-                yerr=y_prop_err_all,
-                capsize=parameters["capsize"] * factor,
-                capthick=parameters["capwidth"] * factor,
-                linewidth=parameters["linewidth"] * factor,
-                color="black",
-                label="all redshifts",
-            )
+        cbar = plt.colorbar(
+            plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
+        )
+        cbar.set_label("$\log(M_\star/M_\odot)$", size=parameters["labelsize"])
+        cbar.ax.tick_params(labelsize=30)
+    if all:
+        factor = 1.5
+        ax.errorbar(
+            x_centers,
+            y_prop_means_all,
+            yerr=y_prop_err_all,
+            capsize=parameters["capsize"] * factor,
+            capthick=parameters["capwidth"] * factor,
+            linewidth=parameters["linewidth"] * factor,
+            color="black",
+            label="all redshifts",
+        )
 
     if two_modes:
-        print("here")
         ax.errorbar(
             x_centers,
             y_prop_means1,
@@ -1809,17 +1833,17 @@ def lineplots(
             label=r"$H>10^{21}\mathrm{cm}$",
         )
 
-    else:
-        if all:
-            ax.errorbar(
-                x_centers,
-                y_prop_means,
-                yerr=y_prop_err,
-                capsize=parameters["capsize"],
-                capthick=parameters["capwidth"],
-                linewidth=parameters["linewidth"],
-                color="red",
-            )
+    # else:
+    #     if all:
+    #         ax.errorbar(
+    #             x_centers,
+    #             y_prop_means,
+    #             yerr=y_prop_err,
+    #             capsize=parameters["capsize"],
+    #             capthick=parameters["capwidth"],
+    #             linewidth=parameters["linewidth"],
+    #             color="red",
+    #         )
 
     if x_log:
         label_x = get_label(x_prop_org)
@@ -1830,9 +1854,9 @@ def lineplots(
     ax.set_xlabel(label_x, size=parameters["labelsize"])
     ax.set_ylabel(label_y, size=parameters["labelsize"])
     set_ax_params(ax, parameters)
-    ax.legend(fontsize=parameters["legendsize"])
+    # ax.legend(fontsize=parameters["legendsize"])
     # ax.set_xlim(5.8)
-    # ax.set_ylim(0, 0.2)
+    ax.set_ylim(0, 0.18)
     return
 
 
@@ -1874,13 +1898,13 @@ def histograms_plot(
     add_line=False,
 ):
     prop_x = "TimeMajorMerger"
-    # mass_filter = (full_df.M_star_sun_log > 6.8) & (
-    #     full_df.M_star_sun_log < 7.2
-    # )
-
-    mass_filter = (full_df.M_star_sun_log > 6.0) & (
-        full_df.M_star_sun_log < 6.2
+    mass_filter = (full_df.M_star_sun_log > 6.8) & (
+        full_df.M_star_sun_log < 7.2
     )
+
+    # mass_filter = (full_df.M_star_sun_log > 6.0) & (
+    #     full_df.M_star_sun_log < 6.2
+    # )
 
     full_df = full_df[mass_filter]
     filter_low = np.log10(full_df["Column_height"]) < 21
@@ -1926,7 +1950,7 @@ def histograms_plot(
             "yrange": (-10.6, -8.9),
             "grid": (20, 20),
             # "avg_lim": (-9.95, -9.15),
-            "avg_lim": (-9.3, -8.9),
+            "avg_lim": (-10, -9.3),
         },
         "Column_height_high": {
             "filter": filter_high,
@@ -1967,7 +1991,7 @@ def histograms_plot(
             "yrange": (-10.6, -8.9),
             "grid": (20, 20),
             # "avg_lim": (-9.95, -9.15),
-            "avg_lim": (-9.3, -8.9),
+            "avg_lim": (-10, -9.3),
         },
     }
 
@@ -2048,7 +2072,7 @@ def histograms_plot(
                 hist_cont.T,
                 levels=levels,
                 linewidths=4,
-                linestyles=["dotted", "dashed", "solid"],
+                linestyles=["dotted", "dashed"],  # , "solid"],
                 colors="lightblue",
             )
 
@@ -2078,20 +2102,23 @@ def histograms_plot(
 
             ax2 = ax.twinx()
             prop = y_dict[y_prop]["label_prop"]
+            color = "red"
             ax2.errorbar(
                 x_centers,
                 y_prop_means,
                 yerr=y_prop_err,
                 capthick=parameters["capwidth"],
                 capsize=5,
-                linew8idth=parameters["linewidth"],
-                color="lime",
+                linewidth=parameters["linewidth"],
+                color=color,
             )
             ax2.set_ylabel(
                 prop,
                 size=30,
             )
             ax2.set_ylim(y_dict[y_prop]["avg_lim"])
+            ax2.yaxis.label.set_color(color)
+            ax2.tick_params(axis="y", colors=color)
             if "low" in y_prop:
                 ax2.yaxis.set_tick_params(labelright=False)
                 ax2.set_yticks([])
@@ -2119,7 +2146,7 @@ def histograms_plot(
         label=color_label,
         gap=True,
         ax_is_cbar=True,
-        horizontal=True,
+        horizontal=False,
     )
     return
 
