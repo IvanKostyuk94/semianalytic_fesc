@@ -40,7 +40,7 @@ def get_normed_coord(particles, df, index, z, is_relative=False):
     return
 
 
-def get_relative_coord(particles, df, idx):
+def get_relative_coord(particles, df, idx, use_center_of_mass=False):
     gal_center = np.array(
         [
             df.loc[idx]["Halo_pos_x"],
@@ -48,7 +48,10 @@ def get_relative_coord(particles, df, idx):
             df.loc[idx]["Halo_pos_z"],
         ]
     )
-    particles["Coordinates"] = particles["Coordinates"] - gal_center
+    if use_center_of_mass:
+        particles["Coordinates"] = particles["CenterOfMass"] - gal_center
+    else:
+        particles["Coordinates"] = particles["Coordinates"] - gal_center
     return
 
 
