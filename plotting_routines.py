@@ -984,6 +984,9 @@ def get_label(prop):
         "AverageColumnDens": r"$\log(N_0/\mathrm{cm}^{-2})$",
         "Dist_5": r"$\log( d_5 / \mathrm{kpc})$ ",
         "v_sigma": r"$v_\mathrm{max}/\sigma_v$",
+        "flow": r"$\mathcal{F}$",
+        "L_M": r"$L_\mathrm{gas}/M_\mathrm{gas}[\mathrm{cm}^2\mathrm{s}^{-1}]$",
+        "Offset_pc": r"$\log( \Delta_c/\mathrm{pc})$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1100,6 +1103,7 @@ def prop_prop_histogram(
     contour=True,
     add_line=False,
     line_log=False,
+    line_x_log=False,
 ):
     if color_log:
         df["color_prop"] = np.log10(df[color_prop])
@@ -1198,8 +1202,17 @@ def prop_prop_histogram(
     )
 
     if add_line:
-        x_edges = np.linspace(x_values.min(), x_values.max(), 20)
-        x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+        lower_edge = x_values.min()
+        upper_edge = x_values.max()
+        x_edges = np.linspace(lower_edge, upper_edge, 20)
+        if line_x_log:
+            log_edges = np.linspace(lower_edge, upper_edge, 20)
+            x_edges = 10**log_edges
+            x_centers = (log_edges[1:] + log_edges[:-1]) / 2
+        else:
+            x_edges = np.linspace(lower_edge, upper_edge, 20)
+            x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+
         # df.replace([0, -np.inf], np.nan).dropna(subset="Metallicity", axis=0)
         df["prop_bins"] = pd.cut(df[prop_x], x_edges, include_lowest=True)
         groups = df.groupby(["prop_bins"])[prop_y]
@@ -1217,13 +1230,12 @@ def prop_prop_histogram(
                 lambda x: x.mean() if x.count() > 5 else np.nan
             )
             y_prop_err = y_prop_std / np.sqrt(y_prop_count)
-
         ax2 = ax.twinx()
         # prop = r"$M_\mathrm{gas}/M_\star$"
         # prop = r"$\langle (\log( d_5 ) \rangle$"
-        prop = r"$\langle v_\mathrm{max}/\sigma_v \rangle$"
+        prop = r"$\langle \Delta_c \rangle$"
 
-        color = "red"
+        color = "lime"
         ax2.errorbar(
             x_centers,
             y_prop_means,
@@ -1238,9 +1250,10 @@ def prop_prop_histogram(
             prop,  # /\mathrm{{cm}})$",
             size=parameters["labelsize"],
         )
-        ax2.set_ylim(3, 3.8)
-        ax2.yaxis.label.set_color(color)
-        ax2.tick_params(axis="y", colors=color)
+        ax2.set_ylim(1.0, 2.5)
+        ax2_color = "greed"
+        ax2.yaxis.label.set_color(ax2_color)
+        ax2.tick_params(axis="y", colors=ax2_color)
         y_range = y_prop_means.max() - y_prop_means.min()
         # ax2.set_ylim(
         #     y_prop_means.min() - 0.2 * y_range,
@@ -1262,8 +1275,8 @@ def prop_prop_histogram(
     # ax.legend(fontsize=parameters["legendsize"])
     set_ax_params(ax, parameters)
 
-    # ax.set_xlim(6, 10.5)
-    # ax.set_ylim(0.9, 3.1)
+    # ax.set_xlim(-9, -7.5)
+    # ax.set_ylim(-1, 3.6)
     return
 
 
@@ -1707,23 +1720,22 @@ def lineplots(
     x_centers = (x_edges[1:] + x_edges[:-1]) / 2
 
     df["prop_bins"] = pd.cut(df[x_prop], x_edges, include_lowest=True)
-
+    df = df[(df.M_star_sun_log > 6) & (df.M_star_sun_log < 9)]
     if individual_z:
         z_values = df["z"].unique()[::-1]
         groups = df.groupby(["z", "prop_bins"])[y_prop]
-        if all:
-            groups_all = df.groupby(["prop_bins"])[y_prop]
+
     elif with_mass_bins:
-        df = df[(df.M_star_sun_log > 6) & (df.M_star_sun_log < 9)]
         stellar_mass_bins = pd.cut(df.M_star_sun_log, bins=20)
         df["mass_bins"] = stellar_mass_bins
         bin_groups = np.sort(stellar_mass_bins.unique())
         groups = df.groupby(["mass_bins", "prop_bins"])[y_prop]
-        if all:
-            groups_all = df.groupby(["prop_bins"])[y_prop]
 
     else:
         groups = df.groupby(["prop_bins"])[y_prop]
+
+    if all:
+        groups_all = df.groupby(["prop_bins"])[y_prop]
 
     y_prop_means, y_prop_err = get_average_values(
         groups, log=log, em_weighted=em_weighted, df=df
@@ -1745,9 +1757,12 @@ def lineplots(
         y_prop_means_all, y_prop_err_all = get_average_values(
             groups_all, log=log, em_weighted=em_weighted, df=df
         )
+        # print(groups_all.count())
+        # print(y_prop_means_all)
+        print(len(df))
 
     f, ax = plt.subplots(
-        figsize=[parameters["figure_width"] * 1.6, parameters["figure_height"]]
+        figsize=[parameters["figure_width"] * 1.3, parameters["figure_height"]]
     )
 
     if individual_z:
@@ -1758,46 +1773,47 @@ def lineplots(
                     x_centers,
                     y_prop_means[z],
                     yerr=y_prop_err[z],
-                    # label=f"z={z:.1f}",
-                    color=plt.cm.plasma(norm(z)),
+                    label=f"z={z:.1f}",
+                    color=plt.cm.viridis(norm(z)),
                     capsize=parameters["capsize"],
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
                 )
-        cbar = plt.colorbar(
-            plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
-        )
-        cbar.set_label("$z$", size=parameters["labelsize"])
-        cbar.ax.tick_params(labelsize=30)
+        # cbar = plt.colorbar(
+        #     plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
+        # )
+        # cbar.set_label("$z$", size=parameters["labelsize"])
+        # cbar.ax.tick_params(labelsize=30)
     if with_mass_bins:
         norm = plt.Normalize(df.M_star_sun_log.min(), df.M_star_sun_log.max())
         for i, bin in enumerate(bin_groups):
             if i % skip == 0:
-                # lower = f"{bin.left:.1f}"
-                # upper = f"{bin.right:.1f}"
-                # label = (
-                #     "$M_\star=10^{"
-                #     + lower
-                #     + "}-10^{"
-                #     + upper
-                #     + "} \mathrm{{M}}_\odot$"
-                # )
+                lower = f"{bin.left:.1f}"
+                upper = f"{bin.right:.1f}"
+                label = (
+                    "$M_\star=10^{"
+                    + lower
+                    + "}-10^{"
+                    + upper
+                    + "} \mathrm{{M}}_\odot$"
+                )
+
                 mass = (bin.right + bin.left) / 2
                 ax.errorbar(
                     x_centers,
                     y_prop_means[bin],
                     yerr=y_prop_err[bin],
-                    color=plt.cm.plasma(norm(mass)),
-                    # label=label,
+                    color=plt.cm.viridis(norm(mass)),
+                    label=label,
                     capsize=parameters["capsize"],
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
                 )
-        cbar = plt.colorbar(
-            plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
-        )
-        cbar.set_label("$\log(M_\star/M_\odot)$", size=parameters["labelsize"])
-        cbar.ax.tick_params(labelsize=30)
+        # cbar = plt.colorbar(
+        #     plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
+        # )
+        # cbar.set_label("$\log(M_\star/M_\odot)$", size=parameters["labelsize"])
+        # cbar.ax.tick_params(labelsize=30)
     if all:
         factor = 1.5
         ax.errorbar(
@@ -1808,7 +1824,7 @@ def lineplots(
             capthick=parameters["capwidth"] * factor,
             linewidth=parameters["linewidth"] * factor,
             color="black",
-            label="all redshifts",
+            label="all galaxies",
         )
 
     if two_modes:
@@ -1854,7 +1870,7 @@ def lineplots(
     ax.set_xlabel(label_x, size=parameters["labelsize"])
     ax.set_ylabel(label_y, size=parameters["labelsize"])
     set_ax_params(ax, parameters)
-    # ax.legend(fontsize=parameters["legendsize"])
+    ax.legend(fontsize=parameters["legendsize"])
     # ax.set_xlim(5.8)
     ax.set_ylim(0, 0.18)
     return
@@ -1887,7 +1903,7 @@ def plot_sample(df, mode, prop="f_esc", props_of_interest=[]):
     return
 
 
-def histograms_plot(
+def modes_plot(
     full_df,
     color_prop="f_esc",
     statistic="mean",
@@ -2008,19 +2024,282 @@ def histograms_plot(
             ["colorbar", "colorbar"],
             ["ghost", "ghost"],
             ["height_low", "height_high"],
-            ["sSFR_low", "sSFR_high"],
-            ["Ratio_low", "Ratio_high"],
-            ["sZ_low", "sZ_high"],
+            # ["sSFR_low", "sSFR_high"],
+            # ["Ratio_low", "Ratio_high"],
+            # ["sZ_low", "sZ_high"],
         ],
         sharey=False,
         sharex=False,
         gridspec_kw={
             "hspace": 0,
             "width_ratios": [24, 24],
-            "height_ratios": [1.5, 1.0, 24, 24, 24, 24],
+            "height_ratios": [1.5, 1.0, 24],  # , 24, 24, 24],
             "wspace": 0,
         },
-        figsize=[15, 24],
+        figsize=[15, 8.5],
+    )
+    # axs["height_low"].get_shared_x_axes().join(
+    #     axs["height_low"], axs["height_high"]
+    # )
+
+    axs["ghost"].axis("off")
+
+    for y_prop in y_dict:
+        if (y_prop == "Column_height_low") or (y_prop == "Column_height_high"):
+            prop_y = y_dict[y_prop]["prop"]
+            df = full_df.loc[y_dict[y_prop]["filter"]]
+            y_values = df[y_dict[y_prop]["prop"]]
+            y_values = np.ma.masked_invalid(np.log10(y_values))
+            x_values = df.loc[:, prop_x]
+            bins_x, bins_y = y_dict[y_prop]["grid"]
+            x_edges = np.linspace(x_values.min(), x_values.max(), bins_x)
+            y_edges = np.linspace(y_values.min(), y_values.max(), bins_y)
+
+            hist, hist_cont, xedges_cont, yedges_cont = get_histogram(
+                df,
+                x_values,
+                y_values,
+                bins=[x_edges, y_edges],
+                color_prop=color_prop,
+                statistic=statistic,
+            )
+            cont_centers_x = (xedges_cont[1:] + xedges_cont[:-1]) / 2
+            cont_centers_y = (yedges_cont[1:] + yedges_cont[:-1]) / 2
+            x_grid, y_grid = np.meshgrid(x_edges, y_edges)
+            vmin, vcenter, vmax = get_color_limits(color_prop, statistic)
+            col_norm = colors.TwoSlopeNorm(
+                vmin=vmin, vcenter=vcenter, vmax=vmax
+            )
+
+            ax = axs[y_dict[y_prop]["ax"]]
+            if "high" in y_prop:
+                ax.yaxis.set_tick_params(labelleft=False)
+                ax.set_yticks([])
+
+            if "Column_height" not in y_prop:
+                ax.xaxis.set_tick_params(labelbottom=False, bottom=False)
+
+            subfig = ax.pcolormesh(
+                x_grid,
+                y_grid,
+                hist.T,
+                norm=col_norm,
+                cmap=plt.get_cmap("inferno"),
+            )
+
+            levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
+            if contour:
+                ax.contour(
+                    cont_centers_x,
+                    cont_centers_y,
+                    hist_cont.T,
+                    levels=levels,
+                    linewidths=4,
+                    linestyles=["dotted", "dashed"],  # , "solid"],
+                    colors="lightblue",
+                )
+
+            if add_line:
+                x_edges = np.linspace(x_values.min(), x_values.max(), 20)
+                x_centers = (x_edges[1:] + x_edges[:-1]) / 2
+                df["prop_bins"] = pd.cut(
+                    df.loc[:, prop_x], x_edges, include_lowest=True
+                )
+                groups = df.groupby(["prop_bins"])[prop_y]
+
+                y_prop_std = groups.std()
+                y_prop_count = groups.count()
+                if y_dict[y_prop]["line_log"]:
+                    y_prop_means = groups.apply(
+                        lambda x: np.log10(x.mean())
+                        if x.count() > 5
+                        else np.nan
+                    )
+                    y_prop_err = (
+                        1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)
+                    )
+
+                else:
+                    y_prop_means = groups.apply(
+                        lambda x: x.mean() if x.count() > 5 else np.nan
+                    )
+                    y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+
+                ax2 = ax.twinx()
+                prop = y_dict[y_prop]["label_prop"]
+                color = "lime"
+                ax2.errorbar(
+                    x_centers,
+                    y_prop_means,
+                    yerr=y_prop_err,
+                    capthick=parameters["capwidth"],
+                    capsize=5,
+                    linewidth=parameters["linewidth"],
+                    color=color,
+                )
+                ax2.set_ylabel(
+                    prop,
+                    size=30,
+                )
+                ax2_color = "green"
+                ax2.set_ylim(y_dict[y_prop]["avg_lim"])
+                ax2.yaxis.label.set_color(ax2_color)
+                ax2.tick_params(axis="y", colors=ax2_color)
+                if "low" in y_prop:
+                    ax2.yaxis.set_tick_params(labelright=False)
+                    ax2.set_yticks([])
+                    ax2.set_ylabel("")
+
+                set_ax_params(ax2, parameters)
+        else:
+            continue
+
+        labelsize = 30
+        ax.set_xlabel(get_label(prop_x), size=labelsize)
+        if "low" in y_prop:
+            ax.set_ylabel(get_label(y_dict[y_prop]["prop"]), size=labelsize)
+        set_ax_params(ax, parameters)
+        # ax.set_yticks([19, 20, 21, 22])
+        ax.set_ylim(y_dict[y_prop]["yrange"])
+        ax.set_xlim(0, 770)
+
+        ax.set_xticks([0, 200, 400, 600])
+
+    color_label = get_label(color_prop)
+    create_color_bar(
+        f,
+        axs["colorbar"],
+        parameters,
+        subfig,
+        label=color_label,
+        gap=True,
+        ax_is_cbar=True,
+        horizontal=False,
+    )
+    return
+
+
+def get_convergence_maps(hdf, halo_idx, prop):
+    maps = {}
+    for key in hdf.keys():
+        if key == "3":
+            continue
+        if key == "None":
+            continue
+        maps[float(key)] = hdf[key][str(halo_idx)][prop]
+    return maps
+
+
+def histograms_plot(
+    full_df,
+    color_prop="f_esc",
+    statistic="mean",
+    bins_x=30,
+    bins_y=30,
+    params=None,
+    contour=True,
+    add_line=False,
+):
+    prop_x = "TimeMajorMerger"
+    mass_filter = (full_df.M_star_sun_log > 6.8) & (
+        full_df.M_star_sun_log < 7.2
+    )
+
+    full_df = full_df[mass_filter]
+    filter_high = np.log10(full_df["Column_height"]) > 21
+
+    y_dict = {
+        "sSFR": {
+            "filter": filter_high,
+            "prop": "sSFR",
+            "ax": "sSFR",
+            "line_log": True,
+            "label_prop": r"$\log(\langle \mathrm{sSFR}\rangle)$",
+            "yrange": (-9.5, -7.6),
+            "grid": (25, 25),
+            "avg_lim": (-8.6, -8.05),
+        },
+        "MgasMstar": {
+            "filter": filter_high,
+            "prop": "MgasMstar",
+            "ax": "Ratio",
+            "line_log": True,
+            "label_prop": r"$\log(\langle M_\mathrm{gas}/M_\star \rangle )$",
+            "yrange": (0.3, 2.4),
+            "grid": (20, 15),
+            "avg_lim": (0.91, 1.55),
+        },
+        "sZ": {
+            "filter": filter_high,
+            "prop": "sZ",
+            "ax": "sZ",
+            "line_log": True,
+            "label_prop": r"$\log(\langle Z/M_\star \rangle)$",
+            "yrange": (-10.6, -9.1),
+            "grid": (20, 20),
+            # "avg_lim": (-9.95, -9.15),
+            "avg_lim": (-9.9, -9.54),
+        },
+        # "v_sigma": {
+        #     "filter": filter_high,
+        #     "prop": "v_sigma",
+        #     "ax": "v_sigma",
+        #     "line_log": False,
+        #     "label_prop": r"$\langle v_\mathrm{max}/\sigma_v \rangle$",
+        #     "yrange": (1.1, 6.1),
+        #     "grid": (20, 20),
+        #     "avg_lim": (2.91, 3.22),
+        # },
+        # "flow": {
+        #     "filter": filter_high,
+        #     "prop": "flow",
+        #     "ax": "flow",
+        #     "line_log": False,
+        #     "label_prop": r"$\langle \mathcal{F} \rangle$",
+        #     "yrange": (-0.92, 0.63),
+        #     "grid": (20, 15),
+        #     "avg_lim": (-0.21, -0.062),
+        # },
+        # "Offset_pc": {
+        #     "filter": filter_high,
+        #     "prop": "Offset_pc",
+        #     "ax": "Offset_pc",
+        #     "line_log": True,
+        #     "label_prop": r"$\langle \log(\Delta_C) \rangle$",
+        #     "yrange": (0.5, 3.45),
+        #     "grid": (20, 20),
+        #     # "avg_lim": (-9.95, -9.15),
+        #     "avg_lim": (1.7, 2.45),
+        # },
+    }
+    parameters = plot_parameters(params)
+    parameters["colorbar_ticklabelsize"] = 20
+    parameters["colorbar_labelsize"] = 30
+
+    full_df = full_df.replace(
+        {"TimeMajorMerger": [np.inf, -np.inf]}, np.nan
+    ).dropna(subset="TimeMajorMerger", axis=0)
+
+    f, axs = plt.subplot_mosaic(
+        [
+            ["colorbar"],
+            ["ghost"],
+            ["sSFR"],
+            ["Ratio"],
+            ["sZ"],
+            # ["v_sigma"],
+            # ["flow"],
+            # ["Offset_pc"],
+        ],
+        sharey=False,
+        sharex=False,
+        gridspec_kw={
+            "hspace": 0,
+            "width_ratios": [24],
+            "height_ratios": [1.5, 1.0, 24, 24, 24],
+            "wspace": 0,
+        },
+        figsize=[7.5, 20.5],
     )
     # axs["height_low"].get_shared_x_axes().join(
     #     axs["height_low"], axs["height_high"]
@@ -2032,7 +2311,10 @@ def histograms_plot(
         prop_y = y_dict[y_prop]["prop"]
         df = full_df.loc[y_dict[y_prop]["filter"]]
         y_values = df[y_dict[y_prop]["prop"]]
-        y_values = np.ma.masked_invalid(np.log10(y_values))
+        if (prop_y == "flow") or (prop_y == "v_sigma"):
+            y_values = np.ma.masked_invalid(y_values)
+        else:
+            y_values = np.ma.masked_invalid(np.log10(y_values))
         x_values = df.loc[:, prop_x]
         bins_x, bins_y = y_dict[y_prop]["grid"]
         x_edges = np.linspace(x_values.min(), x_values.max(), bins_x)
@@ -2053,15 +2335,16 @@ def histograms_plot(
         col_norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
 
         ax = axs[y_dict[y_prop]["ax"]]
-        if "high" in y_prop:
-            ax.yaxis.set_tick_params(labelleft=False)
-            ax.set_yticks([])
 
-        if "sZ" not in y_prop:
+        if ("Offset_pc" and "sZ") not in y_prop:
             ax.xaxis.set_tick_params(labelbottom=False, bottom=False)
 
         subfig = ax.pcolormesh(
-            x_grid, y_grid, hist.T, norm=col_norm, cmap=plt.get_cmap("inferno")
+            x_grid,
+            y_grid,
+            hist.T,
+            norm=col_norm,
+            cmap=plt.get_cmap("inferno"),
         )
 
         levels = get_levels(hist_cont, thresholds=[0.954, 0.683])
@@ -2102,7 +2385,7 @@ def histograms_plot(
 
             ax2 = ax.twinx()
             prop = y_dict[y_prop]["label_prop"]
-            color = "red"
+            color = "lime"
             ax2.errorbar(
                 x_centers,
                 y_prop_means,
@@ -2116,24 +2399,20 @@ def histograms_plot(
                 prop,
                 size=30,
             )
+            ax2_color = "green"
             ax2.set_ylim(y_dict[y_prop]["avg_lim"])
-            ax2.yaxis.label.set_color(color)
-            ax2.tick_params(axis="y", colors=color)
-            if "low" in y_prop:
-                ax2.yaxis.set_tick_params(labelright=False)
-                ax2.set_yticks([])
-                ax2.set_ylabel("")
+            ax2.yaxis.label.set_color(ax2_color)
+            ax2.tick_params(axis="y", colors=ax2_color)
 
             set_ax_params(ax2, parameters)
 
         labelsize = 30
         ax.set_xlabel(get_label(prop_x), size=labelsize)
-        if "low" in y_prop:
-            ax.set_ylabel(get_label(y_dict[y_prop]["prop"]), size=labelsize)
+        ax.set_ylabel(get_label(y_dict[y_prop]["prop"]), size=labelsize)
         set_ax_params(ax, parameters)
         # ax.set_yticks([19, 20, 21, 22])
         ax.set_ylim(y_dict[y_prop]["yrange"])
-        ax.set_xlim(0, 800)
+        ax.set_xlim(0, 750)
 
         ax.set_xticks([0, 200, 400, 600])
 
@@ -2149,14 +2428,3 @@ def histograms_plot(
         horizontal=False,
     )
     return
-
-
-def get_convergence_maps(hdf, halo_idx, prop):
-    maps = {}
-    for key in hdf.keys():
-        if key == "3":
-            continue
-        if key == "None":
-            continue
-        maps[float(key)] = hdf[key][str(halo_idx)][prop]
-    return maps
