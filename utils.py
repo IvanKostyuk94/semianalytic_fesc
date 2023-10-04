@@ -15,6 +15,10 @@ def dist_to_cm(z):
     return (1 * u.kpc).to(u.cm).value / h / (1 + z)
 
 
+def scale_factor(z):
+    return 1 / (z + 1)
+
+
 def get_sim():
     basepath = "/virgotng/universe/IllustrisTNG/"
     sim_name = "L35n2160TNG"
@@ -160,6 +164,8 @@ def load_df(path):
     df_full["MgasMstar"] = (
         10 ** df_full["M_gas_sun_log"] / 10 ** df_full["M_star_sun_log"]
     )
+    df_full["L_M"] = df_full["ang_momentum"] / df_full["M_gas"]
+    df_full["Offset_pc"] = df_full["sfr_mass_to_center_mass"] / (u.pc.to(u.cm))
     df_full.drop(df_full[df_full["M_gas_sun_log"] < 6].index, inplace=True)
     df_full.dropna(subset="f_g_crit", inplace=True)
     df_full.drop(df_full[df_full["M_star_sun_log"] < 5.55].index, inplace=True)
