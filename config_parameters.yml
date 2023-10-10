@@ -18,7 +18,7 @@ grid_size : 100
 with_breakout : True
 
 # Range of snapshots to be processed
-snap_min : 1
+snap_min : 17
 snap_max : 17
 
 # Name of the batchjob the snapnumber will be added to it

@@ -57,12 +57,13 @@ def merge_dfs(
                 try:
                     df_dict[key].extend(list(df[key].copy()))
                 except:
+                    # del df_dict[key]
+                    # continue
                     # Just for debugging
                     print(key)
                     print(snap_num)
             df_dict["z"].extend(np.ones(len(df)) * z)
             df_dict["idx"].extend(df.index)
-
     full_df = pd.DataFrame.from_dict(df_dict)
     full_df.drop(columns=["100", "processed"], inplace=True)
     full_df.to_pickle(destination_path)

@@ -48,5 +48,5 @@ def update_neares_neighbors(
     return
 
 
-if __name__ == "__main__":
-    update_neares_neighbors(0, 17)
+# if __name__ == "__main__":
+#     update_neares_neighbors(0, 3, df_prefix="test")

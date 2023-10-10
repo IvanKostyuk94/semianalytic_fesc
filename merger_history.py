@@ -198,5 +198,5 @@ def add_merger_times_to_numerical_df(
     numerical_df.to_pickle(numerical_df_path)
 
 
-if __name__ == "__main__":
-    update_merger_time("new_df_", snap_range=(1, 17))
+# if __name__ == "__main__":
+#     update_merger_time("test_", snap_range=(0, 3))

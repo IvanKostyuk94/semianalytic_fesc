@@ -225,5 +225,5 @@ def update_prop_values_range(
     return
 
 
-if __name__ == "__main__":
-    update_prop_values_range(12, 17)
+# if __name__ == "__main__":
+#     update_prop_values_range(0, 17)
