@@ -4,7 +4,6 @@ import pandas as pd
 from functools import partial
 import illustris_python as il
 from astropy import units as u
-from itertools import repeat
 from multiprocessing import Pool
 from pyTNG.cosmology import TNGcosmo
 from config import config
