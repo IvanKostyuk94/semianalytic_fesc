@@ -65,7 +65,7 @@ def update_merger_time(
     for i in range(*snap_range):
         snap = get_snap(i)
         dir_path = os.path.join(base_path, snap)
-        df_name = f"{df_prefix}{str(i)}.pickle"
+        df_name = f"{df_prefix}_{str(i)}.pickle"
         df_path = os.path.join(dir_path, df_name)
         df = pd.read_pickle(df_path)
         merger_file = get_merger_snap(snap)
@@ -198,5 +198,5 @@ def add_merger_times_to_numerical_df(
     numerical_df.to_pickle(numerical_df_path)
 
 
-# if __name__ == "__main__":
-#     update_merger_time("test_", snap_range=(0, 3))
+if __name__ == "__main__":
+    update_merger_time(config["df_name"], snap_range=(0, 3))
