@@ -38,6 +38,7 @@ def create_database(
         grid_size=scale,
         hdf_name=maps_name_full,
         df_name=df_name_full,
+        base=base,
         with_breakout=with_breakout,
     )
     update_map_df(
@@ -45,5 +46,6 @@ def create_database(
         scale=scale,
         hdf_name=maps_name_full,
         df_name=df_name_full,
+        base=base,
     )
     return
