@@ -211,7 +211,6 @@ def get_scatter(
     y_axis="f_esc",
     lum_weighted=False,
 ):
-
     x_values = df.loc[:, halo_prop]
     edges = np.logspace(
         np.log10(x_values.min()), np.log10(x_values.max()), bins
@@ -286,7 +285,6 @@ def plot_scatter(
     include_var=False,
     lin=False,
 ):
-
     linewidth = 4
     upper_y_threshold = 1.0
     lower_y_threshold_lin = 0.0
@@ -470,7 +468,6 @@ def plot_scatter(
 
 
 def get_hist_scatter(df, prop, y_axis="f_esc_r", bin_width=0.1, mode="median"):
-
     f_esc = df.loc[:, y_axis]
     x_values = df.loc[:, "M_star_sun"]
     x_prop = "M_star_sun"
@@ -532,7 +529,6 @@ def plot_hist_color(
     bins=[50, 50],
     levels=[10, 30],
 ):
-
     x_labelsize = 50
     y_labelsize = 50
 
@@ -811,7 +807,6 @@ def create_color_bar(
 
 
 def plot_multiple_histograms(maps, params=None):
-
     parameters = plot_parameters(params, multiple=True)
 
     col_norm = get_col_norm(parameters)
@@ -983,10 +978,15 @@ def get_label(prop):
         "MassStarLog": r"$\log \left(\frac{M_\star}{M_\odot} \right)$",
         "AverageColumnDens": r"$\log(N_0/\mathrm{cm}^{-2})$",
         "Dist_5": r"$\log( d_5 / \mathrm{kpc})$ ",
+        "Dist_5_sim": r"$\log( d_5 / \mathrm{kpc})$ ",
         "v_sigma": r"$v_\mathrm{max}/\sigma_v$",
         "flow": r"$\mathcal{F}$",
         "L_M": r"$L_\mathrm{gas}/M_\mathrm{gas}[\mathrm{cm}^2\mathrm{s}^{-1}]$",
         "Offset_pc": r"$\log( \Delta_c/\mathrm{pc})$",
+        "Q0": r"$\log(Q_{0,\mathrm{RT}}/\mathrm{s}^{-1})$",
+        "analytic_Q0": r"$\log(Q_{0}/\mathrm{s}^{-1})$",
+        # "f_esc": r"$f_\mathrm{esc, RT}$",
+        "analytic_fesc": r"$f_\mathrm{esc}$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1232,8 +1232,8 @@ def prop_prop_histogram(
             y_prop_err = y_prop_std / np.sqrt(y_prop_count)
         ax2 = ax.twinx()
         # prop = r"$M_\mathrm{gas}/M_\star$"
-        # prop = r"$\langle (\log( d_5 ) \rangle$"
-        prop = r"$\langle \Delta_c \rangle$"
+        prop = r"$\langle (\log( d_5 ) \rangle$"
+        # prop = r"$\langle \Delta_c \rangle$"
 
         color = "lime"
         ax2.errorbar(
@@ -1242,7 +1242,7 @@ def prop_prop_histogram(
             yerr=y_prop_err,
             capsize=parameters["capsize"],
             capthick=parameters["capwidth"],
-            linewidth=parameters["linewidth"],
+            linewidth=parameters["linewidth"] * 1.5,
             color=color,
             label=rf"$\langle${prop}$\rangle(T_\mathrm{{merger}})$",
         )
@@ -1250,11 +1250,10 @@ def prop_prop_histogram(
             prop,  # /\mathrm{{cm}})$",
             size=parameters["labelsize"],
         )
-        ax2.set_ylim(1.0, 2.5)
-        ax2_color = "greed"
+        ax2.set_ylim(2.7, 3.2)
+        ax2_color = "green"
         ax2.yaxis.label.set_color(ax2_color)
         ax2.tick_params(axis="y", colors=ax2_color)
-        y_range = y_prop_means.max() - y_prop_means.min()
         # ax2.set_ylim(
         #     y_prop_means.min() - 0.2 * y_range,
         #     y_prop_means.max() + 0.2 * y_range,
@@ -1613,7 +1612,6 @@ def plot_prop_maps(
 
 
 def plot_z_histogram(df):
-
     parameters = plot_parameters(params=None)
 
     f, ax = plt.subplots(
@@ -2028,7 +2026,7 @@ def modes_plot(
             # ["Ratio_low", "Ratio_high"],
             # ["sZ_low", "sZ_high"],
         ],
-        sharey=False,
+        # sharey=False,
         sharex=False,
         gridspec_kw={
             "hspace": 0,
@@ -2207,15 +2205,36 @@ def histograms_plot(
 
     full_df = full_df[mass_filter]
     filter_high = np.log10(full_df["Column_height"]) > 21
+    filter_low = np.log10(full_df["Column_height"]) < 21
 
     y_dict = {
+        # "Column_height_low": {
+        #     "filter": filter_low,
+        #     "prop": "Column_height",
+        #     "ax": "height_low",
+        #     "line_log": True,
+        #     "label_prop": r"$\log(\langle H \rangle)$",
+        #     "yrange": (20.1, 21.0),
+        #     "grid": (20, 7),
+        #     "avg_lim": (20.8, 21.0),
+        # },
+        # "Column_height_high": {
+        #     "filter": filter_high,
+        #     "prop": "Column_height",
+        #     "ax": "height_high",
+        #     "line_log": True,
+        #     "label_prop": r"$\log(\langle H \rangle)$",
+        #     "yrange": (21, 22.2),
+        #     "grid": (20, 10),
+        #     "avg_lim": (21.0, 21.5),
+        # },
         "sSFR": {
             "filter": filter_high,
             "prop": "sSFR",
             "ax": "sSFR",
             "line_log": True,
             "label_prop": r"$\log(\langle \mathrm{sSFR}\rangle)$",
-            "yrange": (-9.5, -7.6),
+            "yrange": (-9.4, -7.6),
             "grid": (25, 25),
             "avg_lim": (-8.6, -8.05),
         },
@@ -2240,37 +2259,37 @@ def histograms_plot(
             # "avg_lim": (-9.95, -9.15),
             "avg_lim": (-9.9, -9.54),
         },
-        # "v_sigma": {
-        #     "filter": filter_high,
-        #     "prop": "v_sigma",
-        #     "ax": "v_sigma",
-        #     "line_log": False,
-        #     "label_prop": r"$\langle v_\mathrm{max}/\sigma_v \rangle$",
-        #     "yrange": (1.1, 6.1),
-        #     "grid": (20, 20),
-        #     "avg_lim": (2.91, 3.22),
-        # },
-        # "flow": {
-        #     "filter": filter_high,
-        #     "prop": "flow",
-        #     "ax": "flow",
-        #     "line_log": False,
-        #     "label_prop": r"$\langle \mathcal{F} \rangle$",
-        #     "yrange": (-0.92, 0.63),
-        #     "grid": (20, 15),
-        #     "avg_lim": (-0.21, -0.062),
-        # },
-        # "Offset_pc": {
-        #     "filter": filter_high,
-        #     "prop": "Offset_pc",
-        #     "ax": "Offset_pc",
-        #     "line_log": True,
-        #     "label_prop": r"$\langle \log(\Delta_C) \rangle$",
-        #     "yrange": (0.5, 3.45),
-        #     "grid": (20, 20),
-        #     # "avg_lim": (-9.95, -9.15),
-        #     "avg_lim": (1.7, 2.45),
-        # },
+        "v_sigma": {
+            "filter": filter_high,
+            "prop": "v_sigma",
+            "ax": "v_sigma",
+            "line_log": False,
+            "label_prop": r"$\langle v_\mathrm{max}/\sigma_v \rangle$",
+            "yrange": (1.1, 6.1),
+            "grid": (20, 20),
+            "avg_lim": (2.91, 3.22),
+        },
+        "flow": {
+            "filter": filter_high,
+            "prop": "flow",
+            "ax": "flow",
+            "line_log": False,
+            "label_prop": r"$\langle \mathcal{F} \rangle$",
+            "yrange": (-0.92, 0.63),
+            "grid": (20, 15),
+            "avg_lim": (-0.21, -0.062),
+        },
+        "Offset_pc": {
+            "filter": filter_high,
+            "prop": "Offset_pc",
+            "ax": "Offset_pc",
+            "line_log": True,
+            "label_prop": r"$\langle \log(\Delta_C) \rangle$",
+            "yrange": (0.5, 3.45),
+            "grid": (20, 20),
+            # "avg_lim": (-9.95, -9.15),
+            "avg_lim": (1.7, 2.45),
+        },
     }
     parameters = plot_parameters(params)
     parameters["colorbar_ticklabelsize"] = 20
@@ -2282,30 +2301,35 @@ def histograms_plot(
 
     f, axs = plt.subplot_mosaic(
         [
-            ["colorbar"],
-            ["ghost"],
-            ["sSFR"],
-            ["Ratio"],
-            ["sZ"],
+            ["colorbar", "colorbar", "colorbar"],
+            [".", ".", "."],
+            # ["sSFR"],
+            # ["Ratio"],
+            # ["sZ"],
+            # ["height_high"],
+            # ["height_low"],
             # ["v_sigma"],
             # ["flow"],
             # ["Offset_pc"],
+            ["flow", ".", "sSFR"],
+            ["Ratio", ".", "v_sigma"],
+            ["sZ", ".", "Offset_pc"],
         ],
         sharey=False,
         sharex=False,
         gridspec_kw={
             "hspace": 0,
-            "width_ratios": [24],
+            "width_ratios": [24, 17, 24],
             "height_ratios": [1.5, 1.0, 24, 24, 24],
             "wspace": 0,
         },
-        figsize=[7.5, 20.5],
+        figsize=[18.0, 20.5],
     )
     # axs["height_low"].get_shared_x_axes().join(
     #     axs["height_low"], axs["height_high"]
     # )
 
-    axs["ghost"].axis("off")
+    # axs["ghost"].axis("off")
 
     for y_prop in y_dict:
         prop_y = y_dict[y_prop]["prop"]
@@ -2336,7 +2360,7 @@ def histograms_plot(
 
         ax = axs[y_dict[y_prop]["ax"]]
 
-        if ("Offset_pc" and "sZ") not in y_prop:
+        if ("Offset_pc" not in y_prop) and ("sZ" not in y_prop):
             ax.xaxis.set_tick_params(labelbottom=False, bottom=False)
 
         subfig = ax.pcolormesh(
@@ -2395,24 +2419,37 @@ def histograms_plot(
                 linewidth=parameters["linewidth"],
                 color=color,
             )
-            ax2.set_ylabel(
-                prop,
-                size=30,
-            )
+            if "height_low" not in y_prop:
+                ax2.set_ylabel(
+                    prop,
+                    size=30,
+                )
             ax2_color = "green"
             ax2.set_ylim(y_dict[y_prop]["avg_lim"])
             ax2.yaxis.label.set_color(ax2_color)
             ax2.tick_params(axis="y", colors=ax2_color)
 
+            # ax2.yaxis.set_label_coords(1.2, -0.0)
+
             set_ax_params(ax2, parameters)
 
         labelsize = 30
         ax.set_xlabel(get_label(prop_x), size=labelsize)
-        ax.set_ylabel(get_label(y_dict[y_prop]["prop"]), size=labelsize)
+        if "height_low" not in y_prop:
+            ax.set_ylabel(get_label(y_dict[y_prop]["prop"]), size=labelsize)
         set_ax_params(ax, parameters)
         # ax.set_yticks([19, 20, 21, 22])
         ax.set_ylim(y_dict[y_prop]["yrange"])
         ax.set_xlim(0, 750)
+        # ax.yaxis.set_label_coords(-0.18, 0.0)
+
+        if y_prop == "Column_height_high":
+            ax.spines["bottom"].set_color("white")
+            ax2.spines["bottom"].set_color("white")
+
+        if y_prop == "Column_height_low":
+            ax.spines["top"].set_color("white")
+            ax2.spines["top"].set_color("white")
 
         ax.set_xticks([0, 200, 400, 600])
 
@@ -2427,4 +2464,58 @@ def histograms_plot(
         ax_is_cbar=True,
         horizontal=False,
     )
+    return
+
+
+def scatter_plot(
+    df,
+    prop_x,
+    prop_y,
+    log_x=True,
+    log_y=True,
+    params=None,
+):
+    parameters = plot_parameters(params)
+    df = df.dropna(subset=[prop_x, prop_y])
+    if log_x:
+        df = df[df[prop_x] > 0]
+    if log_y:
+        df = df[df[prop_y] > 0]
+
+    if log_x:
+        x_values = np.log10(df[prop_x])
+    else:
+        x_values = df[prop_x]
+
+    if log_y:
+        y_values = np.log10(df[prop_y])
+
+    else:
+        y_values = df[prop_y]
+    # if log_x:
+    #     x_values = np.ma.masked_invalid(np.log10(x_values))
+    # if log_y:
+    #     y_values = np.ma.masked_invalid(np.log10(y_values))
+
+    f, ax = plt.subplots(
+        figsize=[parameters["figure_width"], parameters["figure_height"]]
+    )
+    ax.scatter(x_values, y_values, s=5, alpha=0.7, color="grey")
+
+    a, b = np.polyfit(x_values, y_values, 1)
+
+    ax.plot(
+        x_values,
+        a * x_values + b,
+        linewidth=parameters["linewidth"],
+        color="black",
+    )
+
+    ax.set_xlabel(get_label(prop_x), size=parameters["labelsize"])
+    ax.set_ylabel(get_label(prop_y), size=parameters["labelsize"])
+    # ax.legend(fontsize=parameters["legendsize"])
+    set_ax_params(ax, parameters)
+
+    # ax.set_xlim(-9, -7.5)
+    # ax.set_ylim(-1, 3.6)
     return
