@@ -30,7 +30,7 @@ def merge_dfs(
         Path where to save the full df, by default it is the directory
         containing the snapshot subdirectories, by default None
     name : str, optional
-        Name of the final directory, by default "full_df"
+        Name of the final df file, by default "full_df"
     """
     if destination_path is None:
         destination_path = os.path.join(base, name + ".pickle")
