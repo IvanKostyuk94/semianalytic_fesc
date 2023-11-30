@@ -329,7 +329,7 @@ def update_maps(
     grid_size,
     hdf_name,
     df_name,
-    base="/ptmp/mpa/ivkos/semianalytic_fesc",
+    base,
     testing=False,
     with_breakout=True,
 ):
