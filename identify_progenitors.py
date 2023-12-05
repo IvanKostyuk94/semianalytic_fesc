@@ -6,11 +6,28 @@ from config import config
 from utils import dist_to_cm
 
 
-def get_history_prop(idx, snap, history, prop="FirstProgenitorID"):
+def get_history_prop(
+    idx,
+    snap,
+    history,
+    id_array=None,
+    progenitor_array=None,
+    prop="FirstProgenitorID",
+):
     ID_raw = int(snap * 1e12 + idx)
-    id_array = np.array(history["SubhaloIDRaw"])
+    if id_array is None:
+        id_array = np.array(history["SubhaloIDRaw"])
     subhalo_pos = int(np.where(id_array == ID_raw)[0])
-    return history[prop][subhalo_pos]
+    progenitor_id = history[prop][subhalo_pos]
+    if progenitor_id == -1:
+        snap = None
+        galaxy_id = None
+    else:
+        progentior_idx = int(np.where(progenitor_array == progenitor_id)[0])
+        progenitor_raw_id = history["SubhaloIDRaw"][progentior_idx]
+        snap = int(np.round(progenitor_raw_id / 1e12))
+        galaxy_id = int(progenitor_raw_id - 1e12 * snap)
+    return snap, galaxy_id
 
 
 def get_history_tuple_prop(idx, snap, history, prop):
@@ -45,18 +62,29 @@ def add_progenitors(
     add_snap_column(df)
     history = h5py.File(merger_history_path)
 
+    id_array = np.array(history["SubhaloIDRaw"])
+    progenitor_idxs = np.array(history["SubhaloID"])
+
     df["progenitor"] = None
+    df["progenitor_snap"] = None
     counter = 0
 
     for i, element in df.iterrows():
         snap = element.snap
         idx = element.idx
-        progenitor_id = get_history_prop(
-            idx, snap, history, prop="FirstProgenitorID"
+        progenitor_snap, progenitor_id = get_history_prop(
+            idx,
+            snap,
+            history,
+            id_array=id_array,
+            progenitor_array=progenitor_idxs,
+            prop="FirstProgenitorID",
         )
         df.loc[i, "progenitor"] = progenitor_id
-        counter += i
-        if (counter % 10000) == 0:
+        df.loc[i, "progenitor_snap"] = progenitor_snap
+
+        counter += 1
+        if (counter % 1000) == 0:
             print(f"{counter/len(df)*100}% done")
     df.to_pickle(df_path)
     return
@@ -71,6 +99,7 @@ def testing_function(
 ):
     df_path = os.path.join(base_path, df_name + file_ending)
     df = pd.read_pickle(df_path)
+    df = df[100000:]
 
     add_snap_column(df)
     history = h5py.File(merger_history_path)
