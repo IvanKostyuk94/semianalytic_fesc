@@ -987,6 +987,8 @@ def get_label(prop):
         "analytic_Q0": r"$\log(Q_{0}/\mathrm{s}^{-1})$",
         # "f_esc": r"$f_\mathrm{esc, RT}$",
         "analytic_fesc": r"$f_\mathrm{esc}$",
+        "Neigbors_333r_sim": r"$N_{333\mathrm{HMR}}$",
+        "Neigbors_666r_sim": r"$N_{10r_\mathrm{vir}}$",  # "$N_{666\mathrm{HMR}}$",
     }
     if prop in prop_labels:
         return prop_labels[prop]
@@ -1119,6 +1121,11 @@ def prop_prop_histogram(
         df = df.replace({"TimeMajorMerger": [np.inf, -np.inf]}, np.nan).dropna(
             subset="TimeMajorMerger", axis=0
         )
+
+    if (prop_x == "TimeMinorMerger") or (prop_x == "TimeMinorMerger"):
+        df = df.replace({"TimeMinorMerger": [np.inf, -np.inf]}, np.nan).dropna(
+            subset="TimeMinorMerger", axis=0
+        )
     # df = df.replace([np.inf, -np.inf], np.nan).dropna(
     #     subset="TimeMajorMerger", axis=0
     # )
@@ -1232,7 +1239,8 @@ def prop_prop_histogram(
             y_prop_err = y_prop_std / np.sqrt(y_prop_count)
         ax2 = ax.twinx()
         # prop = r"$M_\mathrm{gas}/M_\star$"
-        prop = r"$\langle (\log( d_5 ) \rangle$"
+        # prop = r"$\langle (\log( d_5 ) \rangle$"
+        prop = r"$\langle N_{10r_\mathrm{vir}} \rangle$"
         # prop = r"$\langle \Delta_c \rangle$"
 
         color = "lime"
@@ -1250,7 +1258,7 @@ def prop_prop_histogram(
             prop,  # /\mathrm{{cm}})$",
             size=parameters["labelsize"],
         )
-        ax2.set_ylim(2.7, 3.2)
+        ax2.set_ylim(55, 195)
         ax2_color = "green"
         ax2.yaxis.label.set_color(ax2_color)
         ax2.tick_params(axis="y", colors=ax2_color)
