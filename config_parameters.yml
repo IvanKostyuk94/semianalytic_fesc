@@ -3,12 +3,17 @@
 # created if it does not exist
 base_path : "/ptmp/mpa/ivkos/semianalytic_fesc"
 tng_datapath: "/virgotng/universe/IllustrisTNG/"
+merger_history_path : "/virgotng/universe/IllustrisTNG/L35n2160TNG/postprocessing/trees/SubLink_gal/tree_extended.hdf5"
 
 # Prefix of the dataframe and maps file
 # The full name will be name_snapshot.hdf5/pickle
 df_name : "new_df"
 maps_name : "new_maps"
-full_df_name: "new_full_df"
+full_df_name: "full_df_distances"
+
+# file endings
+df_ending: '.pickle'
+hdf_ending: '.hdf5'
 
 # What is the size of the grid for each galaxy
 # Make sure the star-forming regions are sufficiently resolved
@@ -18,8 +23,8 @@ grid_size : 100
 with_breakout : True
 
 # Range of snapshots to be processed
-snap_min : 17
-snap_max : 17
+snap_min : 25
+snap_max : 25
 
 # Name of the batchjob the snapnumber will be added to it
 jobname : "gridding"
