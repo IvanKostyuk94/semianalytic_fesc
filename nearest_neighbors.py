@@ -95,7 +95,7 @@ def add_similar_mass_neighbor_count(df, z, ns, binsize=0.7, stepsize=0.2):
             new_sub_dfs.append(count_neighbors_in_nr(sub_df, z, n))
 
         sub_df_column_name = f"neighbors_{n}r"
-        df_column_name = f"Neigbors_{n}r_sim"
+        df_column_name = f"Neighbors_{n}r_sim"
         df[df_column_name] = None
 
         lower_mass = 6.0
@@ -159,7 +159,8 @@ def update_neares_neighbors(
         df = pd.read_pickle(df_path)
         z = get_redshift_from_snap(i)
         # df = add_nearest_neighbors(df, z)
-        df = add_similar_mass_neighbor(df, z)
+        # df = add_similar_mass_neighbor(df, z)
+        df = add_similar_mass_neighbor_count(df, z, ns=[333, 666, 2000])
         df.to_pickle(df_path)
     return
 
