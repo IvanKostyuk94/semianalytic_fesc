@@ -15,7 +15,6 @@ def get_average_N_d(maps):
 
 
 def get_df_quantity(idces, prop, prop_maps, df, scale, testing=False):
-
     results = []
 
     flux_quantities = ["Ion_flux", "Bol_flux"]
@@ -69,21 +68,69 @@ def get_df_quantity(idces, prop, prop_maps, df, scale, testing=False):
         else:
             continue
         # The scale here is only for testing
-        if testing:
-            if prop in flux_quantities:
-                column_name = prop[:-4] + "em_" + str(scale)
-            else:
-                column_name = prop + "_" + str(scale)
-        else:
-            if prop in flux_quantities:
-                column_name = prop[:-4] + "em"
-            else:
-                column_name = prop
+        # if testing:
+        #     if prop in flux_quantities:
+        #         column_name = prop[:-4] + "em_" + str(scale)
+        #     else:
+        #         column_name = prop + "_" + str(scale)
+        # else:
+        #     if prop in flux_quantities:
+        #         column_name = prop[:-4] + "em"
+        #     else:
+        #         column_name = prop
 
         prop_dict[prop] = quant
         results.append(prop_dict)
 
     return results
+
+
+def get_single_df_quantity(index, prop, prop_maps, df):
+    flux_quantities = ["Ion_flux", "Bol_flux"]
+    summed_quantities = [
+        "M_gas",
+        "M_star",
+        "SFR",
+    ]
+    average_quantities = [
+        "Dust_norm",
+        "Column_dens",
+        "Column_dens_stroemgren",
+        "N_d",
+        "N_ratio",
+        "N_red",
+        "U",
+        "U1",
+        "f_g",
+        "f_g_crit",
+        "p_r",
+        "sigma_d_H",
+        "n_gas",
+    ]
+
+    if prop in summed_quantities:
+        quant = np.sum(prop_maps[str(index)][prop])
+    elif prop in flux_quantities:
+        grid_column = "Grid_cell_size"
+        grid_size = df.loc[index, grid_column]
+        quant = np.sum(prop_maps[str(index)][prop]) * grid_size**2
+    elif prop in average_quantities:
+        quant = np.mean(np.ma.masked_invalid(prop_maps[str(index)][prop]))
+    elif prop == "Metallicity":
+        quant = np.sum(
+            np.array(prop_maps[str(index)]["M_gas"])
+            * np.ma.masked_invalid(
+                np.array(prop_maps[str(index)]["Metallicity"])
+            )
+        ) / np.sum(prop_maps[str(index)]["M_gas"])
+    elif prop == "f_esc":
+        quant = np.sum(
+            np.array(prop_maps[str(index)]["f_esc"])
+            * np.array(prop_maps[str(index)]["Ion_flux"])
+        ) / np.sum(prop_maps[str(index)]["Ion_flux"])
+    else:
+        raise NotImplementedError(f"The property {prop} can not be summarized")
+    return quant
 
 
 def convert_to_dict(hdf_file, scale, df):
@@ -97,8 +144,35 @@ def convert_to_dict(hdf_file, scale, df):
     return full_dict
 
 
-def add_map_quantities(df, prop_dict, scale, Nproc, testing=False):
-    for prop in prop_dict.keys():
+def get_properties_to_summarize():
+    properties_to_summarize = [
+        "Dust_norm",
+        "Column_dens",
+        "Column_dens_stroemgren",
+        "N_d",
+        "N_ratio",
+        "N_red",
+        "U",
+        "f_g",
+        "sigma_d_H",
+        "n_gas",
+        "Ion_flux",
+        "Bol_flux",
+        "SFR",
+        "Metallicity",
+        "f_esc",
+    ]
+    return properties_to_summarize
+
+
+def add_map_quantities(
+    origin_path, destination_path, hdf_file, scale, testing=False
+):
+    df = pd.read_pickle(origin_path)
+
+    props = get_properties_to_summarize()
+
+    for prop in props:
         if testing:
             column_name = prop + "_" + scale
         else:
@@ -107,30 +181,49 @@ def add_map_quantities(df, prop_dict, scale, Nproc, testing=False):
         if not (column_name in df.columns):
             df[column_name] = np.nan
 
-        idces = np.array(df.index, dtype="int")
+    map_to_df_column = "map_to_df_done"
+    if not (map_to_df_column in df.columns):
+        df[map_to_df_column] = False
 
-        np.random.shuffle(idces)
-        chunks = np.array_split(idces, Nproc)
+    prop_maps = hdf_file[str(scale)]
 
-        get_df_quant_batch = partial(
-            get_df_quantity,
-            prop=prop,
-            prop_maps=prop_dict,
-            df=df,
-            scale=scale,
-            testing=testing,
-        )
+    idces = np.array(df[df[map_to_df_column] == False].index, dtype="int")
 
-        with Pool(Nproc) as executor:
-            pool_results = executor.map(get_df_quant_batch, chunks)
+    for i, element in enumerate(idces):
+        for prop in props:
+            quant = get_single_df_quantity(element, prop, prop_maps, df)
+            df.loc[element, prop] = quant
+            df.loc[element, map_to_df_column] = True
 
-        for result in pool_results:
-            # print(result)
-            for element in result:
-                df.loc[element["idx"], prop] = element[prop]
+        if i % 10 == 0:
+            if i > 1:
+                df.to_pickle(destination_path)
 
-        # for idx in df.index:
-        #     get_df_quantity(prop, hdf_file, df, idx, scale, testing=testing)
+    # for batch in batches:
+    #     print(f"Working on batch of size {len(batch)}")
+    #     chunks = np.array_split(batch, Nproc)
+
+    #     for prop in prop_dict.keys():
+    #         get_df_quant_batch = partial(
+    #             get_df_quantity,
+    #             prop=prop,
+    #             prop_maps=prop_dict,
+    #             df=df,
+    #             scale=scale,
+    #             testing=testing,
+    #         )
+
+    #         with Pool(Nproc) as executor:
+    #             pool_results = executor.map(get_df_quant_batch, chunks)
+
+    #         for result in pool_results:
+    #             # print(result)
+    #             for element in result:
+    #                 df.loc[element["idx"], prop] = element[prop]
+
+    #     for idx in batch:
+    #         df.loc[idx, map_to_df_column] = True
+
     return
 
 
@@ -154,24 +247,30 @@ def update_map_df(
     output_filename = output_name + ".pickle"
 
     dict_filename = hdf_name + ".pickle"
-    dict_path = os.path.join(base, snap, dict_filename)
+    # dict_path = os.path.join(base, snap, dict_filename)
     origin_path = os.path.join(base, snap, df_filename)
     destination_path = os.path.join(base, snap, output_filename)
 
     hdf_file = h5py.File(hdf_path, "a")
     df = pd.read_pickle(origin_path)
 
-    if not os.path.isfile(dict_path):
-        print("Creating dictionary file")
-        convert_hdf_to_pickle(
-            snap_num, str(scale), hdf_name, df_name, base, output_name=None
-        )
-        print("Finished creating dictionary file")
+    # if not os.path.isfile(dict_path):
+    #     print("Creating dictionary file")
+    #     convert_hdf_to_pickle(
+    #         snap_num, str(scale), hdf_name, df_name, base, output_name=None
+    #     )
+    #     print("Finished creating dictionary file")
 
-    with open(dict_path, "rb") as handle:
-        prop_dict = pickle.load(handle)
+    # with open(dict_path, "rb") as handle:
+    #     prop_dict = pickle.load(handle)
 
-    add_map_quantities(df, prop_dict, str(scale), Nproc, testing=testing)
+    add_map_quantities(
+        origin_path,
+        destination_path,
+        hdf_file,
+        str(scale),
+        testing=testing,
+    )
 
     df.to_pickle(destination_path)
     hdf_file.close()
