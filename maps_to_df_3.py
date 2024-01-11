@@ -195,7 +195,7 @@ def add_map_quantities(
             df.loc[element, prop] = quant
             df.loc[element, map_to_df_column] = True
 
-        if i % 10 == 0:
+        if i % 1000 == 0:
             if i > 1:
                 df.to_pickle(destination_path)
 
@@ -223,7 +223,7 @@ def add_map_quantities(
 
     #     for idx in batch:
     #         df.loc[idx, map_to_df_column] = True
-
+    df.to_pickle(destination_path)
     return
 
 
@@ -246,7 +246,7 @@ def update_map_df(
     df_filename = df_name + ".pickle"
     output_filename = output_name + ".pickle"
 
-    dict_filename = hdf_name + ".pickle"
+    # dict_filename = hdf_name + ".pickle"
     # dict_path = os.path.join(base, snap, dict_filename)
     origin_path = os.path.join(base, snap, df_filename)
     destination_path = os.path.join(base, snap, output_filename)
@@ -272,7 +272,7 @@ def update_map_df(
         testing=testing,
     )
 
-    df.to_pickle(destination_path)
+    # df.to_pickle(destination_path)
     hdf_file.close()
     return
 
