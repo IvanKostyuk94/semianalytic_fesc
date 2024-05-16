@@ -1,5 +1,5 @@
 from build_initial_df_0 import build_new_df
-from gridded_maps import grid_halos
+from gridded_maps_1 import grid_halos
 from calculate_gridded_fesc_2 import update_maps
 from maps_to_df_3 import update_map_df
 from utils import get_snap
@@ -16,23 +16,31 @@ def create_database(
     scale=config["grid_size"],
     base=config["base_path"],
     with_breakout=config["with_breakout"],
+    df_ending=config["df_ending"],
 ):
     df_name_full = df_name + "_" + str(num)
     maps_name_full = maps_name + "_" + str(num)
     snap = get_snap(num)
-    df_path = os.path.join(base, snap, df_name_full)
+    df_path = os.path.join(base, snap, df_name_full + df_ending)
     try:
         df = pd.read_pickle(df_path)
         if not all(df["processed"]):
             build_new_df(snap_num=num, save_name=df_name_full, base=base)
+            print("Not all elements processed")
     except FileNotFoundError:
+        print("Building new df")
         build_new_df(snap_num=num, save_name=df_name_full, base=base)
+
+    print("Gridding haloes")
     grid_halos(
         df_name=df_name_full,
         snap_num=num,
         grid_scale=scale,
         hdf_name=maps_name_full,
     )
+    print("Finished gridding haloes")
+
+    print("Calculating map quantities")
     update_maps(
         snap_num=num,
         grid_size=scale,
@@ -41,6 +49,9 @@ def create_database(
         base=base,
         with_breakout=with_breakout,
     )
+    print("Finished calculating map quantities")
+
+    print("Updating dataframe")
     update_map_df(
         snap_num=num,
         scale=scale,
@@ -48,4 +59,16 @@ def create_database(
         df_name=df_name_full,
         base=base,
     )
+    print("Finished updating dataframe")
     return
+
+
+if __name__ == "__main__":
+    create_database(
+        num=1,
+        df_name=config["df_name"],
+        maps_name=config["maps_name"],
+        scale=config["grid_size"],
+        base=config["base_path"],
+        with_breakout=config["with_breakout"],
+    )

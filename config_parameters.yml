@@ -7,9 +7,9 @@ merger_history_path : "/virgotng/universe/IllustrisTNG/L35n2160TNG/postprocessin
 
 # Prefix of the dataframe and maps file
 # The full name will be name_snapshot.hdf5/pickle
-df_name : "new_df"
+df_name : "test"
 maps_name : "new_maps"
-full_df_name: "full_df_distances"
+full_df_name: "df_sfr_height"
 
 # file endings
 df_ending: '.pickle'

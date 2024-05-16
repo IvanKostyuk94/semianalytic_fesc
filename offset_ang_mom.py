@@ -8,7 +8,7 @@ from multiprocessing import Pool
 from pyTNG.cosmology import TNGcosmo
 from config import config
 from utils import scale_factor, get_redshift, get_sim, get_snap
-from gridded_maps import select_sphere_gas, get_relative_coord
+from gridded_maps_1 import select_sphere_gas, get_relative_coord
 
 h = TNGcosmo.h
 
@@ -218,11 +218,13 @@ def update_prop_values_range(
     base_path=config["base_path"],
     Nproc=40,
 ):
+    print(df_prefix)
+    print(base_path)
     for i in range(snap_min, snap_max):
         print(f"Working on snapshot {i}")
         expand_prop_values(df_prefix, i, base_path, Nproc)
     return
 
 
-# if __name__ == "__main__":
-#     update_prop_values_range(0, 17)
+if __name__ == "__main__":
+    update_prop_values_range(0, 17)

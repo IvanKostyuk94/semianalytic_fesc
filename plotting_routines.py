@@ -980,7 +980,7 @@ def get_label(prop):
         "Dist_5": r"$\log( d_5 / \mathrm{kpc})$ ",
         "Dist_5_sim": r"$\log( d_5 / \mathrm{kpc})$ ",
         "v_sigma": r"$v_\mathrm{max}/\sigma_v$",
-        "flow": r"$\mathcal{F}$",
+        "flow": r"$\mathcal{F}_\mathrm{gas}$",
         "L_M": r"$L_\mathrm{gas}/M_\mathrm{gas}[\mathrm{cm}^2\mathrm{s}^{-1}]$",
         "Offset_pc": r"$\log( \Delta_c/\mathrm{pc})$",
         "Q0": r"$\log(Q_{0,\mathrm{RT}}/\mathrm{s}^{-1})$",
@@ -1673,7 +1673,7 @@ def get_average_values(groups, log=False, em_weighted=False, df=None):
         )
         y_prop_std = groups.std()
         y_prop_count = groups.count()
-        y_prop_err = y_prop_std / np.sqrt(y_prop_count)
+        y_prop_err = y_prop_std  # / np.sqrt(y_prop_count)
 
     # for key in y_prop_means.keys():
     #     print(len(y_prop_means[key]))
@@ -1696,6 +1696,7 @@ def lineplots(
     with_mass_bins=False,
     two_modes=False,
     filters=None,
+    lower_z=0,
 ):
     parameters = plot_parameters(params)
     df.dropna(subset="f_esc", inplace=True)
@@ -1771,9 +1772,22 @@ def lineplots(
         figsize=[parameters["figure_width"] * 1.3, parameters["figure_height"]]
     )
 
+    print(z_values[:-lower_z])
     if individual_z:
-        norm = plt.Normalize(5, 11)
-        for i, z in enumerate(z_values):
+        norm = plt.Normalize(3, 11)
+        if lower_z > 0:
+            for i, z in enumerate(z_values[:lower_z:]):
+                ax.errorbar(
+                    x_centers,
+                    y_prop_means[z],
+                    yerr=y_prop_err[z],
+                    label=f"z={z:.1f}",
+                    color=plt.cm.viridis(norm(z)),
+                    capsize=parameters["capsize"],
+                    capthick=parameters["capwidth"],
+                    linewidth=parameters["linewidth"],
+                )
+        for i, z in enumerate(z_values[lower_z:]):
             if i % skip == 0:
                 ax.errorbar(
                     x_centers,
@@ -1785,6 +1799,7 @@ def lineplots(
                     capthick=parameters["capwidth"],
                     linewidth=parameters["linewidth"],
                 )
+
         # cbar = plt.colorbar(
         #     plt.cm.ScalarMappable(norm=norm, cmap="viridis"), ax=ax
         # )
@@ -2117,9 +2132,9 @@ def modes_plot(
                 y_prop_count = groups.count()
                 if y_dict[y_prop]["line_log"]:
                     y_prop_means = groups.apply(
-                        lambda x: np.log10(x.mean())
-                        if x.count() > 5
-                        else np.nan
+                        lambda x: (
+                            np.log10(x.mean()) if x.count() > 5 else np.nan
+                        )
                     )
                     y_prop_err = (
                         1 / groups.mean() * y_prop_std / np.sqrt(y_prop_count)

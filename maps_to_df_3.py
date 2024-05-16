@@ -146,6 +146,8 @@ def convert_to_dict(hdf_file, scale, df):
 
 def get_properties_to_summarize():
     properties_to_summarize = [
+        "M_gas",
+        "M_star",
         "Dust_norm",
         "Column_dens",
         "Column_dens_stroemgren",

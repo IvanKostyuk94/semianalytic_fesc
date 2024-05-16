@@ -35,7 +35,7 @@ def is_df_done(df_name, snap_num, base_path=config["base_path"]):
     try:
         df = pd.read_pickle(df_path)
         contains_fesc = "f_esc" in df.columns
-        return all(df["processed"]) and contains_fesc
+        return all(df["processed"]) and contains_fesc and all(df["map_to_df_done"])
     except FileNotFoundError:
         return False
 

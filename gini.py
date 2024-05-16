@@ -70,5 +70,5 @@ def update_gini_range(
     return
 
 
-# if __name__ == "__main__":
-#     update_gini_range(0, 3, df_prefix="test")
+if __name__ == "__main__":
+    update_gini_range(0, 3, df_prefix=config["df_name"])

@@ -32,14 +32,10 @@ def analyze_results(X_poly_test, y_test, lin_reg):
     low_fesc = analysis_df[analysis_df.fesc_true < 0.01]
     fraction_wrong = np.sum(low_fesc.fesc_predict > 0.01) / len(low_fesc)
 
-    # print(np.sum(analysis_df.fesc_predict > 0.1) / len(analysis_df))
-
     heigher_fesc = analysis_df[analysis_df.fesc_true > 0.01]
     average_error = get_relative_error(heigher_fesc)
     print(analysis_df.describe())
     print(average_error)
-    # fractions_wrong.append(fraction_wrong)
-    # average_errors.append(average_error)
     return
 
 
@@ -72,33 +68,15 @@ def train_model(df, order=2):
     y_test = test.f_esc
     poly_features = PolynomialFeatures(degree=order, include_bias=False)
 
-    # masks = select_feature(14, 8)
-    # columns_used = []
-    # fractions_wrong = []
-    # average_errors = []
-    # columns_to_use = np.where(masks[i, :] == 1)[0]
-    # columns_to_use = [0, 1, 4, 5, 8, 10]
     columns_to_use = np.arange(14)
     X_poly = poly_features.fit_transform(X)
     X_poly_test = poly_features.fit_transform(X_test)
 
     X_poly = X_poly[:, columns_to_use]
     X_poly_test = X_poly_test[:, columns_to_use]
-    print(poly_features.get_feature_names_out()[[0, 1, 4, 5, 8, 10]])
     lin_reg = LinearRegression()
     lin_reg.fit(X_poly, y)
     analyze_results(X_poly_test, y_test, lin_reg)
-    print(lin_reg.coef_)
-    print(lin_reg.intercept_)
-    # columns_used.append(columns_to_use)
-    # print(len(fractions_wrong))
-    # print(np.min(fractions_wrong))
-    # print(average_errors[np.argmin(fractions_wrong)])
-    # print(columns_used[np.argmin(fractions_wrong)])
-
-    # print(np.min(average_errors))
-    # print(fractions_wrong[np.argmin(average_errors)])
-    # print(columns_used[np.argmin(average_errors)])
     return
 
 
@@ -128,6 +106,4 @@ def get_fesc_fit(df):
         np.abs(heigher_fesc.f_esc - heigher_fesc.f_esc_model)
         / heigher_fesc.f_esc
     ).mean()
-    print(average_error)
-    print(fraction_wrong)
     return
