@@ -6,8 +6,6 @@ plotting.ipynb
 !/*.md
 !/*.yml
 !/deprecated/*.py
-!/deprecated/*.ipynb
 !/deprecated
 !/misc
 !/misc/*.py
-
