@@ -2,6 +2,7 @@
 !/.gitignore
 !/*.py
 !/*ipynb
+plotting.ipynb
 !/*.md
 !/*.yml
 !/deprecated/*.py
@@ -9,3 +10,4 @@
 !/deprecated
 !/misc
 !/misc/*.py
+
